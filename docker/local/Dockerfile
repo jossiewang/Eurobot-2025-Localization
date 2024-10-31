@@ -50,9 +50,25 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     ssh \
     usbutils \
     udev \ 
-    x11-apps \ 
+    x11-apps \
+    tmux \
+    htop \ 
     && rm -rf /var/lib/apt/lists/*
 
+################################################################################################
+# - IMU Installation stage
+#   - In this stage, install neccesary stuff for phidget IMU spatial.
+################################################################################################
+
+FROM tools AS imu-dep
+
+## Install necessary tools for imu
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3-pip \
+    ros-humble-imu-tools \
+    libusb-1.0-0 libusb-1.0-0-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 ################################################################################################
 # - Final stage
@@ -61,7 +77,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 #       - https://github.com/ros-navigation/navigation2
 ################################################################################################
 
-FROM tools AS final
+FROM imu-dep AS final
 
 ## Set working directory
 WORKDIR /home/localization-ws
