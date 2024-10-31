@@ -13,6 +13,7 @@ services:
     privileged: true
     stop_grace_period: 1s
     restart: no
+    # entrypoint: ["./start.sh"]
 
     network_mode: host
     working_dir: /home/user/localization-ws
@@ -46,6 +47,6 @@ services:
       # "source=${localWorkspaceFolder}/../cache/humble/install,target=/home/ws/install,type=bind",
       # "source=${localWorkspaceFolder}/../cache/humble/log,target=/home/ws/log,type=bind"
       # Mount workspace
-      - ../localization-ws:/home/user/localization-ws
+      - ../../localization-ws:/home/user/localization-ws
 
     command: /bin/bash
