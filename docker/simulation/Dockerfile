@@ -81,7 +81,7 @@ RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyri
 FROM gazebo AS final
 
 ## Set working directory
-WORKDIR /home/localization-ws
+WORKDIR /home/simulation-ws
 
 USER ${USERNAME}
 COPY .bashrc /home/$USERNAME/.bashrc.conf
