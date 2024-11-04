@@ -53,6 +53,23 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     x11-apps \ 
     && rm -rf /var/lib/apt/lists/*
 
+################################################################################################
+# - gazebo Installation stage
+#   - In this stage, install convenient tools for gazebo.
+################################################################################################
+
+FROM tools AS gazebo
+
+## Install necessary packages
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    lsb-release curl gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg &&\
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null &&\
+    sudo apt-get update &&\
+    sudo apt-get install -y gz-garden
 
 ################################################################################################
 # - Final stage
@@ -61,7 +78,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 #       - https://github.com/ros-navigation/navigation2
 ################################################################################################
 
-FROM tools AS final
+FROM gazebo AS final
 
 ## Set working directory
 WORKDIR /home/localization-ws
