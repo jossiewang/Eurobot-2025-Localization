@@ -76,5 +76,10 @@
       <pose>3.044 1.948 0 0 0 -1.57079632679</pose>
       <name>support6</name>
     </include>
+    <include>
+      <uri>file://../robot/diff24.urdf</uri>
+      <pose>1.0 2.0 0.25 0 0 0</pose> <!-- Adjust the x, y, z values as needed -->
+      <name>diff24</name>
+    </include>
   </world>
 </sdf>
