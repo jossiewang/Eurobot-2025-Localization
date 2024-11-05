@@ -1,13 +1,13 @@
 version: '3'
 services:
-  gazebo-garden:
+  ignition-fortress:
     build: 
       context: .
       dockerfile: Dockerfile
       args:
         USERNAME: user
     image: gazebo-test
-    container_name: gazebo-garden
+    container_name: ignition-fortress
     stdin_open: true
     tty: true
     privileged: true
