@@ -12,88 +12,65 @@
         name="gz::sim::systems::Physics">
     </plugin>
     <plugin
-        filename="gz-sim-user-commands-system"
-        name="gz::sim::systems::UserCommands">
-    </plugin>
-    <plugin
         filename="gz-sim-scene-broadcaster-system"
         name="gz::sim::systems::SceneBroadcaster">
     </plugin>
-    <!-- 3D scene -->
-    <plugin filename="MinimalScene" name="3D View">
-      <gz-gui>
-        <title>3D View</title>
-        <property type="bool" key="showTitleBar">false</property>
-        <property type="string" key="state">docked</property>
-      </gz-gui>
-
-      <engine>ogre2</engine>
-      <scene>scene</scene>
-      <ambient_light>0.4 0.4 0.4</ambient_light>
-      <background_color>0.8 0.8 0.8</background_color>
-      <camera_pose>-6 0 6 0 0.5 0</camera_pose>
-      <camera_clip>
-        <near>0.25</near>
-        <far>25000</far>
-      </camera_clip>
-    </plugin>
-    <plugin filename="GzSceneManager" name="Scene Manager">
-      <gz-gui>
-        <property key="resizable" type="bool">false</property>
-        <property key="width" type="double">5</property>
-        <property key="height" type="double">5</property>
-        <property key="state" type="string">floating</property>
-        <property key="showTitleBar" type="bool">false</property>
-      </gz-gui>
-    </plugin>
-
-    <!-- world control -->
-    <plugin filename="WorldControl" name="World control">
-        <gz-gui>
-            <title>World Control</title>
-            <property type="bool" key="showTitleBar">false</property>
-            <property type="bool" key="resizable">false</property>
-            <property type="double" key="height">72</property>
-            <property type="double" key="width">121</property>
-            <property type="double" key="z">1</property>
-
-            <property type="string" key="state">floating</property>
-            <anchors target="3D View">
-              <line own="left" target="left"/>
-              <line own="bottom" target="bottom"/>
-            </anchors>
-        </gz-gui>
-
-        <play_pause>true</play_pause>
-        <step>true</step>
-        <start_paused>true</start_paused>
-        <service>/world/world_demo/control</service>
-        <stats_topic>/world/world_demo/stats</stats_topic>
-    </plugin>
-
-    <!-- World statistics -->
-    <plugin filename="WorldStats" name="World stats">
-        <gz-gui>
-            <title>World stats</title>
-            <property type="bool" key="showTitleBar">false</property>
-            <property type="bool" key="resizable">false</property>
-            <property type="double" key="height">110</property>
-            <property type="double" key="width">290</property>
-            <property type="double" key="z">1</property>
-
-            <property type="string" key="state">floating</property>
-            <anchors target="3D View">
-            <line own="right" target="right"/>
-            <line own="bottom" target="bottom"/>
-            </anchors>
-        </gz-gui>
-
-        <sim_time>true</sim_time>
-        <real_time>true</real_time>
-        <real_time_factor>true</real_time_factor>
-        <iterations>true</iterations>
-        <topic>/world/world_demo/stats</topic>
-
-    </plugin>
+    <!-- include model - fix beacons -->
+    <include>
+      <uri>model://fixed_beacon</uri>
+      <pose>-0.094 0.052 0.5 0 0 0</pose>
+      <name>fixed_beacon_1</name>
+    </include>
+    <include>
+      <uri>model://fixed_beacon</uri>
+      <pose>-0.094 1.948 0.5 0 0 0</pose>
+      <name>fixed_beacon_2</name>
+    </include>
+    <include>
+      <uri>model://fixed_beacon</uri>
+      <pose>3.094 1 0.5 0 0 0</pose>
+      <name>fixed_beacon_3</name>
+    </include>
+    <include>
+      <uri>model://fixed_beacon</uri>
+      <pose>1.5 1.5 0.5 0 0 0</pose>
+      <name>rival</name>
+    </include>
+    <!-- include model - playground -->
+    <include>
+      <uri>model://playground</uri>
+      <pose>1.5 1 0 0 0 0</pose>
+    </include>
+    <!-- include model - support -->
+    <include>
+      <uri>model://support</uri>
+      <pose>-0.044 0.052 0 0 0 1.57079632679</pose>
+      <name>support1</name>
+    </include>
+    <include>
+      <uri>model://support</uri>
+      <pose>-0.044 1 0 0 0 1.57079632679</pose>
+      <name>support2</name>
+    </include>
+    <include>
+      <uri>model://support</uri>
+      <pose>-0.044 1.948 0 0 0 1.57079632679</pose>
+      <name>support3</name>
+    </include>
+    <include>
+      <uri>model://support</uri>
+      <pose>3.044 0.052 0 0 0 -1.57079632679</pose>
+      <name>support4</name>
+    </include>
+    <include>
+      <uri>model://support</uri>
+      <pose>3.044 1 0 0 0 -1.57079632679</pose>
+      <name>support5</name>
+    </include>
+    <include>
+      <uri>model://support</uri>
+      <pose>3.044 1.948 0 0 0 -1.57079632679</pose>
+      <name>support6</name>
+    </include>
   </world>
 </sdf>
