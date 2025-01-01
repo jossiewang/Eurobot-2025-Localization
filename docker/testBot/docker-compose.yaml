@@ -25,4 +25,4 @@ services:
       - /dev:/dev
       # - ../../localization-ws-ros1/src/localization-devel-ws:/home/user/localization-ws-ros1/src/localization-devel-ws:rw
       - ../../localization-ws-ros1/src/localization-devel-ws:/home/user/localization-ws-ros1/src/localization-devel-ws
-    command: /bin/bash
+    command: /bin/bash -c "/home/user/localization-ws-ros1/src/localization-devel-ws/usb.sh && /bin/bash"
