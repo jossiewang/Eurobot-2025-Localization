@@ -1,12 +1,12 @@
 version: '3'
 services:
-  ros2-localization-dev:
+  ros1-localization-dev:
     build: 
       context: .
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    # image: jossiewang/ros2-humble:ver1
+    image: jossiewang/eurobot2025-localization:robot-ydlidar
     container_name: localization-2025-dev
     stdin_open: true
     tty: true

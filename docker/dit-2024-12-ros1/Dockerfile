@@ -9,8 +9,8 @@ FROM osrf/ros:noetic-desktop-full AS base
 
 LABEL org.opencontainers.image.authors="jossiew621@gapp.nthu.edu.tw"
 
-ARG USERNAME=user
-ARG USER_UID=1000
+ARG USERNAME=localization
+ARG USER_UID=1004
 ARG USER_GID=$USER_UID
 ARG WORKSPACE_DIR=/home/$USERNAME/localization-ws
 
@@ -75,14 +75,14 @@ RUN sudo cmake .. && \
     sudo make && \
     sudo make install
 
-# USER ${USERNAME}
-# WORKDIR ${WORKSPACE_DIR}/src/sensor-ws/ydlidar_ros_driver
-# RUN git clone https://github.com/jossiewang/ydlidar_ros_driver-G6.git ${WORKSPACE_DIR}/src/sensor-ws/ydlidar_ros_driver
-# RUN git clone https://github.com/tysik/obstacle_detector.git 
+USER ${USERNAME}
+WORKDIR ${WORKSPACE_DIR}/src/sensor-ws/ydlidar_ros_driver
+RUN git clone https://github.com/jossiewang/ydlidar_ros_driver-G6.git ${WORKSPACE_DIR}/src/sensor-ws/ydlidar_ros_driver
+RUN git clone https://github.com/tysik/obstacle_detector.git 
 
-# RUN sudo apt-get autoremove -y && \
-#     sudo apt-get autoclean -y && \
-#     sudo rm -rf /var/lib/apt/lists/*
+RUN sudo apt-get autoremove -y && \
+    sudo apt-get autoclean -y && \
+    sudo rm -rf /var/lib/apt/lists/*
 
 ################################################################################################
 # - IMU Installation stage
