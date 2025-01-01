@@ -80,7 +80,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 FROM imu-dep AS final
 
 ## Set working directory
-WORKDIR /home/localization-ws
+WORKDIR /home/$USERNAME/localization-ws/src
 
 USER ${USERNAME}
 COPY .bashrc /home/$USERNAME/.bashrc.conf
