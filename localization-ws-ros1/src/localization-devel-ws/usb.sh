@@ -38,16 +38,16 @@ fi
 # Get the device name from dmesg
 DEVICE_NAME=$(sudo dmesg | grep -oP 'cp210x converter now attached to \KttyUSB[0-9]+' | tail -1)
 
-if [ -z "$DEVICE_NAME" ]; then
-    echo "No cp210x device found."
-    exit 1
+# Validate the DEVICE_NAME to ensure it matches the expected pattern
+if [[ "$DEVICE_NAME" =~ ^ttyUSB[0-9]+$ ]]; then
+  DEVICE_PATH="/dev/$DEVICE_NAME"
+
+  # Change the permissions to read and write for all users
+  sudo chmod 666 $DEVICE_PATH
+
+  # Verify the permissions have been changed
+  echo "Updated permissions for $DEVICE_PATH:"
+  ls -l $DEVICE_PATH
+else
+  echo "Invalid device name: $DEVICE_NAME"
 fi
-
-DEVICE_PATH="/dev/$DEVICE_NAME"
-
-# Change the permissions to read and write for all users
-sudo chmod 666 $DEVICE_PATH
-
-# Verify the permissions have been changed
-echo "Updated permissions for $DEVICE_PATH:"
-ls -l $DEVICE_PATH
