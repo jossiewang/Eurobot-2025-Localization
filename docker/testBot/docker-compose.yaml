@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: jossiewang/eurobot2025-localization:local-ros1-ImuLidar
+    image: jossiewang/eurobot2025-localization:testBot-ros1-ImuLidar
     container_name: localization-2025-ros1-dev
     stdin_open: true
     tty: true
@@ -25,4 +25,5 @@ services:
       - /dev:/dev
       # - ../../localization-ws-ros1/src/localization-devel-ws:/home/user/localization-ws-ros1/src/localization-devel-ws:rw
       - ../../localization-ws-ros1/src/localization-devel-ws:/home/user/localization-ws-ros1/src/localization-devel-ws
-    command: /bin/bash -c "/home/user/localization-ws-ros1/src/localization-devel-ws/usb.sh && /bin/bash"
+    # command: /bin/bash -c "/home/user/localization-ws-ros1/src/localization-devel-ws/usb.sh && /bin/bash"
+    command: /bin/bash
