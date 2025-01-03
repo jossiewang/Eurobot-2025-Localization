@@ -3,7 +3,7 @@
 # IMU port
 
 # List all USB devices and find the IMU device
-IMU_DEVICE=$(lsusb | grep -i "Phidgets Inc. (formerly GLAB) PhidgetSpatial Precision 3/3/3")
+IMU_DEVICE=$(lsusb | grep -i "06c2:008d")  # Phidgets Inc. (formerly GLAB) USB2.1 Hub
 
 if [ -z "$IMU_DEVICE" ]; then
   echo "IMU device not found."
