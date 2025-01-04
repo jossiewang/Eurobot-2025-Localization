@@ -77,9 +77,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 
 FROM ros-dep AS final
 
+USER ${USERNAME}
 ## Set working directory
 WORKDIR /home/$USERNAME/localization-ws-ros1/src
-USER ${USERNAME}
 
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
