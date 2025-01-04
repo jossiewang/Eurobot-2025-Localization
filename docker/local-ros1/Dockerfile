@@ -66,6 +66,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     ros-noetic-tf2-sensor-msgs \
     ros-noetic-move-base-msgs \
+    ros-noetic-costmap-converter \
     && rm -rf /var/lib/apt/lists/*
 
 ################################################################################################
@@ -80,6 +81,7 @@ FROM ros-dep AS final
 USER ${USERNAME}
 ## Set working directory
 WORKDIR /home/$USERNAME/localization-ws-ros1/src
+RUN git clone https://github.com/tysik/obstacle_detector.git /home/$USERNAME/localization-ws-ros1/src/obstacle_detector
 
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
@@ -93,7 +95,6 @@ RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
 #     rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
 #     /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install' \
 #     && rm -rf /var/lib/apt/lists/*
-
 
 ## Final configurations
 USER $USERNAME
