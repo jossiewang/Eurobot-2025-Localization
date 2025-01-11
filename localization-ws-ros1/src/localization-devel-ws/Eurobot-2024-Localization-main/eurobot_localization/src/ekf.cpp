@@ -111,7 +111,8 @@ void Ekf::initialize()
     ekf_pose_pub_ = nh_.advertise<nav_msgs::Odometry>("final_pose", 10);
     update_beacon_pub_ = nh_.advertise<obstacle_detector::Obstacles>("update_beacon", 10);
     update_timer_ = nh_.createTimer(ros::Duration(1.0), &Ekf::updateTimerCallback, this, false, false);
-
+    // Publish robot prediction pose and covariance, for BeaconProbability
+    robot_pred_pub_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("ekf_prediction_pose", 10);
     fast_spin_server = nh_.advertiseService("fast_spin", &Ekf::fast_spin, this);
     ready_client = nh_.serviceClient<startup_msgs::StartUpSrv>("startup/ready_signal");
     scan_client = nh_.serviceClient<std_srvs::Empty>("start_scan");
@@ -226,6 +227,20 @@ void Ekf::predict_diff_ekf(double v, double w, double dt, Eigen::Matrix3d odom_s
     R << odom_sigma(0, 0)*c_, 0.0, 0.0, 0.0, odom_sigma(0, 0)*s_, 0.0, 0.0, 0.0, odom_sigma(2, 2);
 
     robotstate_.sigma = robotstate_.sigma + R;
+    // Publish the predicted state
+    geometry_msgs::PoseWithCovarianceStamped predicted_state;
+    predicted_state.header.stamp = ros::Time::now();
+    predicted_state.header.frame_id = "map";
+    predicted_state.pose.pose.position.x = robotstate_.mu(0);
+    predicted_state.pose.pose.position.y = robotstate_.mu(1);
+    tf2::Quaternion q;
+    q.setRPY(0, 0, robotstate_.mu(2));
+    predicted_state.pose.pose.orientation = tf2::toMsg(q);
+    predicted_state.pose.covariance[0] = robotstate_.sigma(0, 0);
+    predicted_state.pose.covariance[7] = robotstate_.sigma(1, 1);
+    predicted_state.pose.covariance[35] = robotstate_.sigma(2, 2);
+
+    robot_pred_pub_.publish(predicted_state);
 }
 
 void Ekf::predict_diff_ucekf(double v, double w, double dt)
@@ -327,6 +342,22 @@ void Ekf::predict_omni_ucekf(double v_x, double v_y, double w, double dt)
     // Covariance of Prediction
     robotstate_.sigma = G * cov_past * G.transpose() + W * cov_motion * W.transpose();
     // cout << "predict sigma " << robotstate_.sigma << endl;
+
+    // Publish the predicted state
+    geometry_msgs::PoseWithCovarianceStamped predicted_state;
+    predicted_state.header.stamp = ros::Time::now();
+    predicted_state.header.frame_id = "map";
+    predicted_state.pose.pose.position.x = robotstate_.mu(0);
+    predicted_state.pose.pose.position.y = robotstate_.mu(1);
+    tf2::Quaternion q;
+    q.setRPY(0, 0, robotstate_.mu(2));
+    predicted_state.pose.pose.orientation = tf2::toMsg(q);
+    predicted_state.pose.covariance[0] = robotstate_.sigma(0, 0);
+    predicted_state.pose.covariance[7] = robotstate_.sigma(1, 1);
+    predicted_state.pose.covariance[35] = robotstate_.sigma(2, 2);
+
+    robot_pred_pub_.publish(predicted_state);
+
 }
 
 void Ekf::predict_omni_ekf(double v_x, double v_y, double w, double dt, Eigen::Matrix3d odom_sigma)
@@ -360,6 +391,22 @@ void Ekf::predict_omni_ekf(double v_x, double v_y, double w, double dt, Eigen::M
 
     /* Update robot state covariance ( sigma ) */
     robotstate_.sigma = A * cov_past * A.transpose() + odom_sigma;
+
+    // Publish the predicted state
+    geometry_msgs::PoseWithCovarianceStamped predicted_state;
+    predicted_state.header.stamp = ros::Time::now();
+    predicted_state.header.frame_id = "map";
+    predicted_state.pose.pose.position.x = robotstate_.mu(0);
+    predicted_state.pose.pose.position.y = robotstate_.mu(1);
+    tf2::Quaternion q;
+    q.setRPY(0, 0, robotstate_.mu(2));
+    predicted_state.pose.pose.orientation = tf2::toMsg(q);
+    predicted_state.pose.covariance[0] = robotstate_.sigma(0, 0);
+    predicted_state.pose.covariance[7] = robotstate_.sigma(1, 1);
+    predicted_state.pose.covariance[35] = robotstate_.sigma(2, 2);
+
+    robot_pred_pub_.publish(predicted_state);
+
 }
 
 void Ekf::update_landmark()
@@ -899,7 +946,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh_local("~");
     Ekf ekf(nh, nh_local);
     ekf.initialize();
-
+    ROS_DEBUG("ekf_localization node has started.");
     while (ros::ok())
     {
         ros::spin();
