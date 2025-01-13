@@ -90,8 +90,7 @@ FROM imu-dep AS rplidar-dep
 USER ${USERNAME}
 WORKDIR /home/user/localization-ws
 RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/sensor-ws/rplidar-ros-driver/
-RUN git clone https://github.com/ros-drivers/phidgets_drivers -b humble /home/user/localization-ws/src/sensor-ws/phidgets_drivers/
-
+COPY phidgets_drivers /home/user/localization-ws/src/sensor-ws/phidgets_drivers
 ################################################################################################
 # - obstacle detect Installation stage
 #
