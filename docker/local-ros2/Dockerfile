@@ -43,6 +43,10 @@ FROM user-setup AS tools
 ## Install necessary packages
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3-pip \
+    python3-rosdep \
+    python3-setuptools \
+    python3-numpy \
     apt-utils \
     git \
     nano \
@@ -53,8 +57,17 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     x11-apps \
     tmux \
     htop \ 
-    && rm -rf /var/lib/apt/lists/*
-
+    ros-humble-foxglove-bridge \
+    libsdl-image1.2-dev \
+    libarmadillo-dev \
+    libboost-all-dev \
+    # ros-humble-laser-geometry \
+    libsuitesparse-dev \
+    ros-humble-libg2o \
+    # ros-humble-imu-tools \
+    libusb-1.0-0 libusb-1.0-0-dev -y && \
+    rm -rf /var/lib/apt/lists/*
+    
 ################################################################################################
 # - IMU Installation stage
 #   - In this stage, install neccesary stuff for phidget IMU spatial.
@@ -65,22 +78,42 @@ FROM tools AS imu-dep
 ## Install necessary tools for imu
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    python3-pip \
     ros-humble-imu-tools \
-    libusb-1.0-0 libusb-1.0-0-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ################################################################################################
-# - Final stage
-#   - In this stage, I will install required packages for Navigation2.
-#   - Reference:
-#       - https://github.com/ros-navigation/navigation2
+# - RPLiDar Installation stage
+#   - In this stage, install neccesary stuff for RPLiDar.
 ################################################################################################
 
-FROM imu-dep AS final
-
-## Set working directory
+FROM imu-dep AS rplidar-dep
 USER ${USERNAME}
+WORKDIR /home/user/localization-ws
+RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/sensor-ws/rplidar-ros-driver/
+RUN git clone https://github.com/ros-drivers/phidgets_drivers -b humble /home/user/localization-ws/src/sensor-ws/phidgets_drivers/
+
+################################################################################################
+# - obstacle detect Installation stage
+#
+################################################################################################
+
+FROM rplidar-dep AS obs-dep
+USER ${USERNAME}
+WORKDIR /home/user/localization-ws
+RUN mkdir -p /tmp/repo &&\
+    mkdir -p /home/user/localization-ws/src/obstacle_detector
+RUN git clone -b obstacle-detect https://wintera1233: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@github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /tmp/repo \
+    && mv /tmp/repo/localization-ws/src/obstacle_detector_2 /home/user/localization-ws/src/ && \
+    rm -rf /tmp/repo
+
+################################################################################################
+# - Final stage
+# 
+################################################################################################
+
+FROM obs-dep AS final
+USER ${USERNAME}
+## Set working directory
 WORKDIR /home/$USERNAME/localization-ws/src
 
 COPY .bashrc /home/$USERNAME/.bashrc.conf
@@ -95,8 +128,8 @@ RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
 #     rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
 #     /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install' \
 #     && rm -rf /var/lib/apt/lists/*
-
-
-## Final configurations
-USER $USERNAME
+# RUN echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc && \
+#     echo "source /home/localization-ws/install/setup.bash" >> /etc/bash.bashrc
+## Final configurationszz
+USER ${USERNAME}
 CMD ["/bin/bash"]

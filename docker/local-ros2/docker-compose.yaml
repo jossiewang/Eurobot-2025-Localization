@@ -6,8 +6,8 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    # image: jossiewang/eurobot2025-localization:local-ros2-nosensor
-    container_name: localization-2025-dev
+    image: jossiewang/eurobot2025-localization:local-ros2-wSensors
+    container_name: localization-2025-dev-ros2
     stdin_open: true
     tty: true
     privileged: true
@@ -48,6 +48,4 @@ services:
       # "source=${localWorkspaceFolder}/../cache/humble/log,target=/home/ws/log,type=bind"
       # Mount workspace
       - ../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
-
-    # add ROS_DOMAIN_ID and ROS_LOCALHOST_ONLY to bashrc
-    command: /bin/bash -c "echo 'export ROS_DOMAIN_ID=42' >> ~/.bashrc && echo 'export ROS_LOCALHOST_ONLY=1' >> ~/.bashrc && /home/user/localization-ws/src/localization-devel-ws/usb.sh && /bin/bash"
+    command: /bin/bash
