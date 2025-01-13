@@ -7,7 +7,6 @@ services:
       args:
         USERNAME: user
     # image: jossiewang/eurobot2025-localization:local-ros2-nosensor
-    image: ros2-humble:latest
     container_name: localization-2025-dev
     stdin_open: true
     tty: true
@@ -48,6 +47,7 @@ services:
       # "source=${localWorkspaceFolder}/../cache/humble/install,target=/home/ws/install,type=bind",
       # "source=${localWorkspaceFolder}/../cache/humble/log,target=/home/ws/log,type=bind"
       # Mount workspace
-      - ../../localization-ws/src/localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
+      - ../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
 
-    command: /bin/bash
+    # add ROS_DOMAIN_ID and ROS_LOCALHOST_ONLY to bashrc
+    command: /bin/bash -c "echo 'export ROS_DOMAIN_ID=42' >> ~/.bashrc && echo 'export ROS_LOCALHOST_ONLY=1' >> ~/.bashrc && /home/user/localization-ws/src/localization-devel-ws/usb.sh && /bin/bash"
