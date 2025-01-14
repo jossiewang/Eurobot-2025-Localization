@@ -81,54 +81,40 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     ros-humble-imu-tools \
     && rm -rf /var/lib/apt/lists/*
 
+USER ${USERNAME}
+WORKDIR /home/user/localization-ws/src/phidgets_drivers
+COPY phidgets_drivers /home/user/localization-ws/src/phidgets_drivers
+
 ################################################################################################
-# - RPLiDar Installation stage
+# - RPLiDar and obstacle detector Installation stage
 #   - In this stage, install neccesary stuff for RPLiDar.
 ################################################################################################
 
-FROM imu-dep AS rplidar-dep
+FROM imu-dep AS lidar-dep
 USER ${USERNAME}
-WORKDIR /home/user/localization-ws
-RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/sensor-ws/rplidar-ros-driver/
-COPY phidgets_drivers /home/user/localization-ws/src/sensor-ws/phidgets_drivers
-################################################################################################
-# - obstacle detect Installation stage
-#
-################################################################################################
-
-FROM rplidar-dep AS obs-dep
-USER ${USERNAME}
-WORKDIR /home/user/localization-ws
-RUN mkdir -p /tmp/repo &&\
-    mkdir -p /home/user/localization-ws/src/obstacle_detector
-RUN git clone -b obstacle-detect https://wintera1233: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@github.com/DIT-ROBOTICS/Eurobot-2025-Localization.git /tmp/repo \
-    && mv /tmp/repo/localization-ws/src/obstacle_detector_2 /home/user/localization-ws/src/ && \
-    rm -rf /tmp/repo
+WORKDIR /home/user/localization-ws/src/rplidar-ros-driver
+RUN git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git /home/user/localization-ws/src/rplidar-ros-driver/
+RUN git clone -b humble-devel https://github.com/harmony-eu/obstacle_detector_2.git /home/user/localization-ws/src/obstacle_detector_2
 
 ################################################################################################
 # - Final stage
 # 
 ################################################################################################
 
-FROM obs-dep AS final
-USER ${USERNAME}
+FROM lidar-dep AS final
+
 ## Set working directory
-WORKDIR /home/$USERNAME/localization-ws/src
+WORKDIR /home/${USERNAME}/localization-ws
+# RUN sudo chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/localization-ws
+USER ${USERNAME}
+RUN sudo apt-get update && \
+    rosdep update && \
+    rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
+    /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install' \
+    && sudo rm -rf /var/lib/apt/lists/*
 
 COPY .bashrc /home/$USERNAME/.bashrc.conf
 RUN cat /home/$USERNAME/.bashrc.conf >> /home/$USERNAME/.bashrc
 
-## NOTE:
-## Steps below should ideally be performed in a separate container and then mounted as a volume to the main container, 
-## as they require modifications that are better handled outside the Dockerfile.
-
-# RUN apt-get update && \
-#     git clone https://github.com/ros-planning/navigation2.git --branch $ROS_DISTRO src/navigation2 && \
-#     rosdep install -y -r -q --from-paths src --ignore-src --rosdistro $ROS_DISTRO && \
-#     /bin/bash -c 'source /opt/ros/$ROS_DISTRO/setup.bash; colcon build --symlink-install' \
-#     && rm -rf /var/lib/apt/lists/*
-# RUN echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc && \
-#     echo "source /home/localization-ws/install/setup.bash" >> /etc/bash.bashrc
-## Final configurationszz
 USER ${USERNAME}
 CMD ["/bin/bash"]
