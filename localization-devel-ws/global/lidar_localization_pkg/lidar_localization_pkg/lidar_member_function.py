@@ -2,16 +2,14 @@ import rclpy
 from rclpy.node import Node
 
 from std_msgs.msg import String # add to package.xml
+from geometry_msgs.msg import PoseWithCovarianceStamped
 
 class LidarLocalization(Node): # inherit from Node
 
     def __init__(self):
         super().__init__('lidar_localization_node') # name of the node
         # publisher
-        self.publisher_ = self.create_publisher(String, 'pub_topic', 10)
-        # timer_period = 0.5  # seconds
-        # self.timer = self.create_timer(timer_period, self.timer_callback)
-        self.i = 0
+        self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
         # subscriber
         self.subscription = self.create_subscription(
             String,
@@ -23,19 +21,18 @@ class LidarLocalization(Node): # inherit from Node
     def listener_callback(self, msg):
         self.get_logger().info('I heard: "%s"' % msg.data)
         msg = String()
-        msg.data = 'Hello World: %d' % self.i
-        # self.publisher_.publish(msg)
-        self.get_logger().info('Publishing: "%s"' % msg.data)
-        self.i += 1
-
-
-    # def timer_callback(self):
-    #     msg = String()
-    #     msg.data = 'Hello World: %d' % self.i
-    #     # self.publisher_.publish(msg)
-    #     self.get_logger().info('Publishing: "%s"' % msg.data)
-    #     self.i += 1
-
+        # lidar_pose_msg
+        lidar_pose_msg = PoseWithCovarianceStamped()
+        lidar_pose_msg.header.stamp = self.get_clock().now().to_msg()
+        lidar_pose_msg.header.frame_id = 'base_link'
+        lidar_pose_msg.pose.pose.position.x = 1.0
+        lidar_pose_msg.pose.pose.position.y = 2.0
+        lidar_pose_msg.pose.pose.position.z = 3.0
+        lidar_pose_msg.pose.pose.orientation.x = 0.0
+        lidar_pose_msg.pose.pose.orientation.y = 0.0
+        lidar_pose_msg.pose.pose.orientation.z = 0.0
+        lidar_pose_msg.pose.pose.orientation.w = 1.0
+        self.lidar_pose_pub.publish(lidar_pose_msg)
 
 def main(args=None):
     rclpy.init(args=args)
