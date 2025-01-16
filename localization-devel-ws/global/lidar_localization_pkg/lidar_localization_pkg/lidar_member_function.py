@@ -34,6 +34,12 @@ class LidarLocalization(Node): # inherit from Node
             'raw_obstacles',
             self.obstacle_callback,
             10)
+        self.subscription = self.create_subscription(
+            PoseWithCovarianceStamped, 
+            'pred_pose',
+            self.pred_pose_callback,
+            10
+        )
         self.subscription  # prevent unused variable warning
 
         # ros debug logger
@@ -67,8 +73,20 @@ class LidarLocalization(Node): # inherit from Node
         self.obs_raw = []
         for obs in msg.circles:
             self.obs_raw.append(np.array([obs.center.x, obs.center.y]))
-        # use log to print what it get
-        self.get_logger().debug('obs_raw: %s' % self.obs_raw)
+    
+    def pred_pose_callback(self, msg):
+        # self.print_debug("Robot pose callback triggered")
+        self.newPose = True
+        orientation = euler_from_quaternion(msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w)[2] # raw, pitch, *yaw
+        # check orientation range
+        if orientation < 0:
+            orientation += 2 * np.pi
+        self.robot_pose = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, orientation])
+        self.P_pred = np.array([
+            [msg.pose.covariance[0], 0, 0],
+            [0, msg.pose.covariance[7], 0],
+            [0, 0, msg.pose.covariance[35]]
+        ])
 
     def init_landmarks_map(self, landmarks_map):
         self.landmarks_map = landmarks_map
@@ -237,7 +255,8 @@ class LidarLocalization(Node): # inherit from Node
 
                 # publish the lidar pose
                 lidar_pose_msg = PoseWithCovarianceStamped()
-                lidar_pose_msg.header.stamp = self.obs_time # compensation
+                lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
+                lidar_pose_msg.header.frame_id = 'map' #TODO: param
                 lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
                 lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
                 lidar_pose_msg.pose.pose.position.z = 0.0
@@ -255,7 +274,7 @@ class LidarLocalization(Node): # inherit from Node
                 # self.get_logger().debug("Published lidar_pose message")
 
             except np.linalg.LinAlgError as e:
-                rospy.logerr("Linear algebra error: {}".format(e))
+                self.get_logger().warn("Linear algebra error: {}".format(e))
         else:
             self.get_logger().debug("not enough beacons")
 
@@ -285,12 +304,12 @@ def quaternion_from_euler(ai, aj, ak):
     ai /= 2.0
     aj /= 2.0
     ak /= 2.0
-    ci = math.cos(ai)
-    si = math.sin(ai)
-    cj = math.cos(aj)
-    sj = math.sin(aj)
-    ck = math.cos(ak)
-    sk = math.sin(ak)
+    ci = np.cos(ai)
+    si = np.sin(ai)
+    cj = np.cos(aj)
+    sj = np.sin(aj)
+    ck = np.cos(ak)
+    sk = np.sin(ak)
     cc = ci*ck
     cs = ci*sk
     sc = si*ck
@@ -302,17 +321,17 @@ def quaternion_from_euler(ai, aj, ak):
     q[3] = cj*cc + sj*ss
     return q
 
-def euler_from_quaternion(self, x, y, z, w):
+def euler_from_quaternion(x, y, z, w):
     t0 = +2.0 * (w * x + y * z)
     t1 = +1.0 - 2.0 * (x * x + y * y)
-    roll_x = math.atan2(t0, t1)
+    roll_x = np.atan2(t0, t1)
     t2 = +2.0 * (w * y - z * x)
     t2 = +1.0 if t2 > +1.0 else t2
     t2 = -1.0 if t2 < -1.0 else t2
-    pitch_y = math.asin(t2)
+    pitch_y = np.asin(t2)
     t3 = +2.0 * (w * z + x * y)
     t4 = +1.0 - 2.0 * (y * y + z * z)
-    yaw_z = math.atan2(t3, t4)
+    yaw_z = np.atan2(t3, t4)
     return yaw_z # in radians
 
 def angle_limit_checking(theta):
