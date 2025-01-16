@@ -1,8 +1,10 @@
 import rclpy
 from rclpy.node import Node
 
-from std_msgs.msg import String # add to package.xml
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from obstacle_detector.msg import Obstacles
+
+import numpy as np
 
 class LidarLocalization(Node): # inherit from Node
 
@@ -12,27 +14,35 @@ class LidarLocalization(Node): # inherit from Node
         self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
         # subscriber
         self.subscription = self.create_subscription(
-            String,
-            'chatter',
-            self.listener_callback,
+            Obstacles,
+            'raw_obstacles',
+            self.obstacle_callback,
             10)
         self.subscription  # prevent unused variable warning
 
-    def listener_callback(self, msg):
-        self.get_logger().info('I heard: "%s"' % msg.data)
-        msg = String()
-        # lidar_pose_msg
-        lidar_pose_msg = PoseWithCovarianceStamped()
-        lidar_pose_msg.header.stamp = self.get_clock().now().to_msg()
-        lidar_pose_msg.header.frame_id = 'base_link'
-        lidar_pose_msg.pose.pose.position.x = 1.0
-        lidar_pose_msg.pose.pose.position.y = 2.0
-        lidar_pose_msg.pose.pose.position.z = 3.0
-        lidar_pose_msg.pose.pose.orientation.x = 0.0
-        lidar_pose_msg.pose.pose.orientation.y = 0.0
-        lidar_pose_msg.pose.pose.orientation.z = 0.0
-        lidar_pose_msg.pose.pose.orientation.w = 1.0
-        self.lidar_pose_pub.publish(lidar_pose_msg)
+    # def listener_callback(self, msg):
+    #     self.get_logger().info('I heard: "%s"' % msg.data)
+    #     # lidar_pose_msg
+    #     lidar_pose_msg = PoseWithCovarianceStamped()
+    #     lidar_pose_msg.header.stamp = self.get_clock().now().to_msg()
+    #     lidar_pose_msg.header.frame_id = 'base_link'
+    #     lidar_pose_msg.pose.pose.position.x = 1.0
+    #     lidar_pose_msg.pose.pose.position.y = 2.0
+    #     lidar_pose_msg.pose.pose.position.z = 3.0
+    #     lidar_pose_msg.pose.pose.orientation.x = 0.0
+    #     lidar_pose_msg.pose.pose.orientation.y = 0.0
+    #     lidar_pose_msg.pose.pose.orientation.z = 0.0
+    #     lidar_pose_msg.pose.pose.orientation.w = 1.0
+    #     self.lidar_pose_pub.publish(lidar_pose_msg)
+    
+    def obstacle_callback(self, msg):
+        self.get_logger().info('obstacle detected')
+        # obstacle operation
+        self.obs_raw = []
+        for obs in msg.circles:
+            self.obs_raw.append(np.array([obs.center.x, obs.center.y]))
+        # use log to print what it get
+        self.get_logger().info('obs_raw: %s' % self.obs_raw)
 
 def main(args=None):
     rclpy.init(args=args)
