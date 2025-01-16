@@ -262,9 +262,9 @@ class LidarLocalization(Node): # inherit from Node
 
                     lidar_pose[2] = angle_limit_checking(np.arctan2(robot_sin, robot_cos))
 
-                    P_post[0, 0] /= max_likelihood
-                    P_post[1, 1] /= max_likelihood
-                    P_post[2, 2] /= max_likelihood
+                P_post[0, 0] /= max_likelihood
+                P_post[1, 1] /= max_likelihood
+                P_post[2, 2] /= max_likelihood
 
                 # publish the lidar pose
                 lidar_pose_msg = PoseWithCovarianceStamped()
@@ -280,7 +280,10 @@ class LidarLocalization(Node): # inherit from Node
                 lidar_pose_msg.pose.covariance = [
                     P_post[0, 0], 0.0, 0.0, 0.0, 0.0, 0.0,
                     0.0, P_post[1, 1], 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, P_post[2, 2],
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, P_post[2, 2]
                 ]
                 # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
                 self.lidar_pose_pub.publish(lidar_pose_msg)
