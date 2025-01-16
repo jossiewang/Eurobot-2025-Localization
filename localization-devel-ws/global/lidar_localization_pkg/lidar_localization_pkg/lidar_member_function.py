@@ -73,6 +73,19 @@ class LidarLocalization(Node): # inherit from Node
         self.obs_raw = []
         for obs in msg.circles:
             self.obs_raw.append(np.array([obs.center.x, obs.center.y]))
+        self.obs_time = msg.header.stamp
+        # data processing
+        if self.newPose == False: # Check if robot_pose or P_pred is empty
+            self.print_debug("no new robot pose or P_pred")
+            return
+        self.landmarks_candidate = self.get_landmarks_candidate(self.landmarks_map, self.obs_raw, self.robot_pose, self.P_pred, self.R)
+        self.landmarks_set = self.get_landmarks_set(self.landmarks_candidate)
+        if len(self.landmarks_set) == 0:
+            self.print_debug("empty landmarks set")
+            return
+        self.lidar_pose, self.P_post = self.get_lidar_pose(self.landmarks_set, self.landmarks_map)
+        # clear used data
+        self.clear_data()
     
     def pred_pose_callback(self, msg):
         # self.print_debug("Robot pose callback triggered")
