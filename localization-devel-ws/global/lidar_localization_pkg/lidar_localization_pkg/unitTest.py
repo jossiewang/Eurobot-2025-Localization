@@ -25,21 +25,17 @@ class TestLidarLocalization(unittest.TestCase):
         self.obs_raw.extend(obs_raw_mess)
         # print time to evaluate the time cost
         start_time = time.time()
-        print('Obstacle detected time: ', start_time)
         landmarks_candidate = self.beacon_prob.get_landmarks_candidate(self.landmarks_map, self.obs_raw, self.robot_pose, self.P_pred, self.R)
         print('Time cost for landmarks_candidate: ', time.time() - start_time)
         start_time = time.time()
-        print('Landmarks candidate start: ', start_time)
         self.landmarks_candidate = landmarks_candidate
         print('Time cost for landmarks_candidate: ', time.time() - start_time)
 
     def test_get_robot_pose(self):
         start_time = time.time()
-        print('landmarks_set start: ', time.time())
         landmarks_set = self.beacon_prob.get_landmarks_set(self.landmarks_candidate)
         print('Time cost for landmarks_set: ', time.time() - start_time)
         start_time = time.time()
-        print('lidar_pose start: ', time.time())
         self.lidar_pose, self.P_post = self.beacon_prob.get_lidar_pose(landmarks_set, self.landmarks_map)
         print('Time cost for lidar_pose: ', time.time() - start_time)
         self.assertEqual(len(landmarks_set), 6)  # 2 * 2 * 2 = 8 permutations

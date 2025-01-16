@@ -6,6 +6,8 @@ from obstacle_detector.msg import Obstacles
 
 import numpy as np
 
+import time
+
 class LidarLocalization(Node): # inherit from Node
 
     def __init__(self):
@@ -223,17 +225,20 @@ class LidarLocalization(Node): # inherit from Node
     def get_lidar_pose(self, landmarks_set, landmarks_map):
         if not landmarks_set:
             raise ValueError("landmarks_set is empty")
+        start_time = time.time()
         # prefer the set with more beacons
         landmarks_set = sorted(landmarks_set, key=lambda x: len(x['beacons']), reverse=True)
         # with the most beacon possible, prefer the set with the highest probability_set; TODO: better way to sort?
         max_likelihood = max(set['probability_set'] for set in landmarks_set)
         max_likelihood_idx = next(i for i, set in enumerate(landmarks_set) if set['probability_set'] == max_likelihood)
+        print('Time cost for sorting: ', time.time() - start_time)
 
         lidar_pose = np.zeros(3)
         P_post = np.diag([0.05**2, 0.05**2, 0.05**2]) # what should the optimal value be?
 
         # If the most likely set has at least 3 beacons
         if len(landmarks_set[max_likelihood_idx]['beacons']) >= 3:
+            start_time = time.time()
             beacons = [landmarks_set[max_likelihood_idx]['beacons'][i] for i in range(3)]
             A = np.zeros((2, 2))
             b = np.zeros(2)
@@ -249,6 +254,8 @@ class LidarLocalization(Node): # inherit from Node
 
             try:
                 X = np.linalg.solve(A.T @ A, A.T @ b)
+                print('Time cost for solving X: ', time.time() - start_time)
+                start_time = time.time()
                 lidar_pose[0] = X[0]
                 lidar_pose[1] = X[1]
 
@@ -262,29 +269,38 @@ class LidarLocalization(Node): # inherit from Node
 
                     lidar_pose[2] = angle_limit_checking(np.arctan2(robot_sin, robot_cos))
 
+                print('Time cost for find theta: ', time.time() - start_time)
+                start_time = time.time()
+
                 P_post[0, 0] /= max_likelihood
                 P_post[1, 1] /= max_likelihood
                 P_post[2, 2] /= max_likelihood
-
+                print('Time cost for adjusting P_post: ', time.time() - start_time)
+                start_time = time.time()
                 # publish the lidar pose
                 lidar_pose_msg = PoseWithCovarianceStamped()
-                # lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
+                print('Time cost for creating lidar_pose_msg: ', time.time() - start_time)
+                start_time = time.time()
+                # self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
                 lidar_pose_msg.header.frame_id = 'map' #TODO: param
+                print('Time cost for setting header: ', time.time() - start_time)
+                start_time = time.time()
                 lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
+                print('Time cost for setting x: ', time.time() - start_time)
                 lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
                 lidar_pose_msg.pose.pose.position.z = 0.0
                 lidar_pose_msg.pose.pose.orientation.x = 0.0
                 lidar_pose_msg.pose.pose.orientation.y = 0.0
+                start_time = time.time()
                 lidar_pose_msg.pose.pose.orientation.z = np.sin(lidar_pose[2] / 2)
+                print('Time cost for setting z: ', time.time() - start_time)
                 lidar_pose_msg.pose.pose.orientation.w = np.cos(lidar_pose[2] / 2)
-                lidar_pose_msg.pose.covariance = [
-                    P_post[0, 0], 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, P_post[1, 1], 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, P_post[2, 2]
-                ]
+                start_time = time.time()
+                lidar_pose_msg.pose.covariance[0] = P_post[0, 0]    # TODO: diaganol shouldn't be 0?
+                print('Time cost for setting covariance[0]: ', time.time() - start_time)
+                lidar_pose_msg.pose.covariance[7] = P_post[1, 1]
+                lidar_pose_msg.pose.covariance[35] = P_post[2, 2]
+                # print('Time cost for preparing to publish: ', time.time() - start_time)
                 # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
                 # self.lidar_pose_pub.publish(lidar_pose_msg)
                 # self.get_logger().debug("Published lidar_pose message")
