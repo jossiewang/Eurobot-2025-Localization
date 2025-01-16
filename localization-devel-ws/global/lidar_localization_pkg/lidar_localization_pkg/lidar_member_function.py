@@ -20,6 +20,9 @@ class LidarLocalization(Node): # inherit from Node
             10)
         self.subscription  # prevent unused variable warning
 
+        # ros debug logger
+        self.get_logger().debug('Lidar Localization Node has been initialized')
+
     # def listener_callback(self, msg):
     #     self.get_logger().info('I heard: "%s"' % msg.data)
     #     # lidar_pose_msg
@@ -36,13 +39,13 @@ class LidarLocalization(Node): # inherit from Node
     #     self.lidar_pose_pub.publish(lidar_pose_msg)
     
     def obstacle_callback(self, msg):
-        self.get_logger().info('obstacle detected')
+        self.get_logger().debug('obstacle detected')
         # obstacle operation
         self.obs_raw = []
         for obs in msg.circles:
             self.obs_raw.append(np.array([obs.center.x, obs.center.y]))
         # use log to print what it get
-        self.get_logger().info('obs_raw: %s' % self.obs_raw)
+        self.get_logger().debug('obs_raw: %s' % self.obs_raw)
 
 def main(args=None):
     rclpy.init(args=args)
