@@ -9,7 +9,7 @@ import numpy as np
 class LidarLocalization(Node): # inherit from Node
 
     def __init__(self):
-        super().__init__('lidar_localization_node')
+        # super().__init__('lidar_localization_node')
         # Set the side (0 for blue and 1 for yellow); TODO: use param
         side = 1
         if side == 0:
@@ -28,22 +28,22 @@ class LidarLocalization(Node): # inherit from Node
         self.debug_mode = False
 
         # ros settings
-        self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
-        self.subscription = self.create_subscription(
-            Obstacles,
-            'raw_obstacles',
-            self.obstacle_callback,
-            10)
-        self.subscription = self.create_subscription(
-            PoseWithCovarianceStamped, 
-            'pred_pose',
-            self.pred_pose_callback,
-            10
-        )
-        self.subscription  # prevent unused variable warning
+        # self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
+        # self.subscription = self.create_subscription(
+        #     Obstacles,
+        #     'raw_obstacles',
+        #     self.obstacle_callback,
+        #     10)
+        # self.subscription = self.create_subscription(
+        #     PoseWithCovarianceStamped, 
+        #     'pred_pose',
+        #     self.pred_pose_callback,
+        #     10
+        # )
+        # self.subscription  # prevent unused variable warning
 
         # ros debug logger
-        self.get_logger().debug('Lidar Localization Node has been initialized')
+        # self.get_logger().debug('Lidar Localization Node has been initialized')
 
         self.landmarks_map = landmarks_map
         self.init_landmarks_map(self.landmarks_map)
@@ -68,7 +68,7 @@ class LidarLocalization(Node): # inherit from Node
     #     self.lidar_pose_pub.publish(lidar_pose_msg)
     
     def obstacle_callback(self, msg):
-        self.get_logger().debug('obstacle detected')
+        # self.get_logger().debug('obstacle detected')
         # obstacle operation
         self.obs_raw = []
         for obs in msg.circles:
@@ -205,7 +205,7 @@ class LidarLocalization(Node): # inherit from Node
                     # consistency of the set
                     set['consistency'] = self.get_geometry_consistency(set['beacons'])
                     if set['consistency'] < 0.9:
-                        self.get_logger().debug(f"Geometry consistency is less than 0.9: {set['consistency']}")
+                        # self.get_logger().debug(f"Geometry consistency is less than 0.9: {set['consistency']}")
                         continue
                     # probability of the set
                     set['probability_set'] = landmarks_candidate[0]['obs_candidates'][i]['probability'] * landmarks_candidate[1]['obs_candidates'][j]['probability'] * landmarks_candidate[2]['obs_candidates'][k]['probability']
@@ -268,7 +268,7 @@ class LidarLocalization(Node): # inherit from Node
 
                 # publish the lidar pose
                 lidar_pose_msg = PoseWithCovarianceStamped()
-                lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
+                # lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
                 lidar_pose_msg.header.frame_id = 'map' #TODO: param
                 lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
                 lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
@@ -286,13 +286,15 @@ class LidarLocalization(Node): # inherit from Node
                     0.0, 0.0, 0.0, 0.0, 0.0, P_post[2, 2]
                 ]
                 # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
-                self.lidar_pose_pub.publish(lidar_pose_msg)
+                # self.lidar_pose_pub.publish(lidar_pose_msg)
                 # self.get_logger().debug("Published lidar_pose message")
 
             except np.linalg.LinAlgError as e:
-                self.get_logger().warn("Linear algebra error: {}".format(e))
+                # self.get_logger().warn("Linear algebra error: {}".format(e))
+                print("Linear algebra error: {}".format(e))
         else:
-            self.get_logger().debug("not enough beacons")
+            # self.get_logger().debug("not enough beacons")
+            print("not enough beacons")
 
         return lidar_pose, P_post
 
