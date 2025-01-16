@@ -51,6 +51,7 @@ class LidarLocalization(Node): # inherit from Node
         self.P_pred = []
         self.newPose = False
         self.R = np.array([[0.05**2, 0.0], [0.0, 0.05**2]]) # R: measurement noise; TODO: tune the value
+        self.lidar_pose_msg = PoseWithCovarianceStamped()
 
     # def listener_callback(self, msg):
     #     self.get_logger().info('I heard: "%s"' % msg.data)
@@ -83,7 +84,7 @@ class LidarLocalization(Node): # inherit from Node
         if len(self.landmarks_set) == 0:
             self.print_debug("empty landmarks set")
             return
-        self.lidar_pose, self.P_post = self.get_lidar_pose(self.landmarks_set, self.landmarks_map)
+        self.lidar_pose, self.lidar_cov = self.get_lidar_pose(self.landmarks_set, self.landmarks_map)
         # clear used data
         self.clear_data()
     
@@ -230,7 +231,7 @@ class LidarLocalization(Node): # inherit from Node
         max_likelihood_idx = next(i for i, set in enumerate(landmarks_set) if set['probability_set'] == max_likelihood)
 
         lidar_pose = np.zeros(3)
-        P_post = np.diag([0.05**2, 0.05**2, 0.05**2]) # what should the optimal value be?
+        lidar_cov = np.diag([0.05**2, 0.05**2, 0.05**2]) # what should the optimal value be?
 
         # If the most likely set has at least 3 beacons
         if len(landmarks_set[max_likelihood_idx]['beacons']) >= 3:
@@ -262,31 +263,30 @@ class LidarLocalization(Node): # inherit from Node
 
                     lidar_pose[2] = angle_limit_checking(np.arctan2(robot_sin, robot_cos))
 
-                P_post[0, 0] /= max_likelihood
-                P_post[1, 1] /= max_likelihood
-                P_post[2, 2] /= max_likelihood
+                lidar_cov[0, 0] /= max_likelihood
+                lidar_cov[1, 1] /= max_likelihood
+                lidar_cov[2, 2] /= max_likelihood
 
                 # publish the lidar pose
-                lidar_pose_msg = PoseWithCovarianceStamped()
-                lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
-                lidar_pose_msg.header.frame_id = 'map' #TODO: param
-                lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
-                lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
-                lidar_pose_msg.pose.pose.position.z = 0.0
-                lidar_pose_msg.pose.pose.orientation.x = 0.0
-                lidar_pose_msg.pose.pose.orientation.y = 0.0
-                lidar_pose_msg.pose.pose.orientation.z = np.sin(lidar_pose[2] / 2)
-                lidar_pose_msg.pose.pose.orientation.w = np.cos(lidar_pose[2] / 2)
-                lidar_pose_msg.pose.covariance = [
-                    P_post[0, 0], 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, P_post[1, 1], 0.0, 0.0, 0.0, 0.0,
+                self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
+                self.lidar_pose_msg.header.frame_id = 'map' #TODO: param
+                self.lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
+                self.lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
+                self.lidar_pose_msg.pose.pose.position.z = 0.0
+                self.lidar_pose_msg.pose.pose.orientation.x = 0.0
+                self.lidar_pose_msg.pose.pose.orientation.y = 0.0
+                self.lidar_pose_msg.pose.pose.orientation.z = np.sin(lidar_pose[2] / 2)
+                self.lidar_pose_msg.pose.pose.orientation.w = np.cos(lidar_pose[2] / 2)
+                self.lidar_pose_msg.pose.covariance = [
+                    lidar_cov[0, 0], 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, lidar_cov[1, 1], 0.0, 0.0, 0.0, 0.0,
                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0, P_post[2, 2]
+                    0.0, 0.0, 0.0, 0.0, 0.0, lidar_cov[2, 2]
                 ]
                 # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
-                self.lidar_pose_pub.publish(lidar_pose_msg)
+                self.lidar_pose_pub.publish(self.lidar_pose_msg)
                 # self.get_logger().debug("Published lidar_pose message")
 
             except np.linalg.LinAlgError as e:
@@ -294,7 +294,7 @@ class LidarLocalization(Node): # inherit from Node
         else:
             self.get_logger().debug("not enough beacons")
 
-        return lidar_pose, P_post
+        return lidar_pose, lidar_cov
 
     def get_geometry_consistency(self, beacons):
         geometry_description = {}
