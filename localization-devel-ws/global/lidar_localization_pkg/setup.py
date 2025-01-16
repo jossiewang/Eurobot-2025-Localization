@@ -19,7 +19,12 @@ setup(
         # Include all launch files.
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*.launch.py'))),
     ],
-    install_requires=['setuptools'],
+    install_requires=[
+        'setuptools',
+        'rclpy',
+        'geometry_msgs',
+        'obstacle_detector',
+    ],
     zip_safe=True,
     maintainer='jossiew621',
     maintainer_email='jossiew621@gapp.nthu.edu.tw',
