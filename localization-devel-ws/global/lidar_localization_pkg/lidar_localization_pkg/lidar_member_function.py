@@ -276,10 +276,10 @@ class LidarLocalization(Node): # inherit from Node
                 lidar_cov[0, 0] /= max_likelihood
                 lidar_cov[1, 1] /= max_likelihood
                 lidar_cov[2, 2] /= max_likelihood
-                print('Time cost for adjusting P_post: ', time.time() - start_time)
+                print('Time cost for adjusting lidar_cov: ', time.time() - start_time)
                 start_time = time.time()
                 # publish the lidar pose
-                self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
+                # self.lidar_pose_msg.header.stamp = self.get_clock().now().to_msg() # TODO: compensation
                 self.lidar_pose_msg.header.frame_id = 'map' #TODO: param
                 self.lidar_pose_msg.pose.pose.position.x = lidar_pose[0]
                 self.lidar_pose_msg.pose.pose.position.y = lidar_pose[1]
@@ -314,10 +314,10 @@ class LidarLocalization(Node): # inherit from Node
                 print('Time cost for setting z: ', time.time() - start_time)
                 lidar_pose_msg.pose.pose.orientation.w = np.cos(lidar_pose[2] / 2)
                 start_time = time.time()
-                lidar_pose_msg.pose.covariance[0] = P_post[0, 0]    # TODO: diaganol shouldn't be 0?
+                lidar_pose_msg.pose.covariance[0] = lidar_cov[0, 0]    # TODO: diaganol shouldn't be 0?
                 print('Time cost for setting covariance[0]: ', time.time() - start_time)
-                lidar_pose_msg.pose.covariance[7] = P_post[1, 1]
-                lidar_pose_msg.pose.covariance[35] = P_post[2, 2]
+                lidar_pose_msg.pose.covariance[7] = lidar_cov[1, 1]
+                lidar_pose_msg.pose.covariance[35] = lidar_cov[2, 2]
                 # print('Time cost for preparing to publish: ', time.time() - start_time)
                 # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
                 # self.lidar_pose_pub.publish(self.lidar_pose_msg)
