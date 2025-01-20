@@ -132,29 +132,9 @@ class LidarLocalization(Node): # inherit from Node
         S_det = np.linalg.det(S)
         normalizer = 1 / np.sqrt((2 * np.pi) ** 2 * S_det)
 
-        likelihood_threshold = 0  # Define a threshold for likelihood
-        if self.visualize_mode:
-            marker = Marker()
-            marker.header.frame_id = "robot_predict"
-            marker.header.stamp = self.get_clock().now().to_msg()
-            marker.ns = "candidates"
-            marker.type = Marker.SPHERE
-            marker.action = Marker.ADD
-            marker.scale.x = 0.1
-            marker.scale.y = 0.1
-            marker.scale.z = 0.01
-
-            text_marker = Marker()
-            text_marker.header.frame_id = "robot_predict"
-            text_marker.header.stamp = self.get_clock().now().to_msg()
-            text_marker.ns = "text"
-            text_marker.type = Marker.TEXT_VIEW_FACING
-            text_marker.action = Marker.ADD
-            text_marker.scale.z = 0.1
-            text_marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)  # White text
-            marker_id = 0
-
-            marker_array = MarkerArray()
+        likelihood_threshold = 0.001  # Define a threshold for likelihood
+        marker_id = 0
+        marker_array = MarkerArray()
 
         for obs in obs_raw:
             r_z = np.sqrt(obs[0] ** 2 + obs[1] ** 2)
