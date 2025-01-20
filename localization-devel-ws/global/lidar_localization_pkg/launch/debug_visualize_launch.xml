@@ -1,0 +1,17 @@
+<launch>
+    <node pkg="lidar_localization_pkg" exec="lidar_localization" name="probability_publisher" output="screen">
+        <!-- Add any necessary parameters or remappings here -->
+    </node>
+
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="static_transform_publisher" output="screen" args="0 0 0 0 0 0 map laser_link" />
+    <!-- Arguments: x y z yaw pitch roll frame_id child_frame_id -->
+
+    <!-- launch pred_publisher -->
+    <node pkg="lidar_localization_pkg" exec="pred_publisher" name="pred_publisher" output="screen">
+        <!-- Add any necessary parameters or remappings here -->
+    </node>
+
+    <include file="$(find-pkg-share foxglove_bridge)/launch/foxglove_bridge_launch.xml">
+        <arg name="port" value="8765" />
+    </include>
+</launch>

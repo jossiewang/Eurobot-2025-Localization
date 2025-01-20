@@ -3,6 +3,8 @@ from rclpy.node import Node
 
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from obstacle_detector.msg import Obstacles
+from visualization_msgs.msg import Marker, MarkerArray
+from std_msgs.msg import ColorRGBA
 
 import numpy as np
 
@@ -26,9 +28,12 @@ class LidarLocalization(Node): # inherit from Node
                     ]
         # set debug mode
         self.debug_mode = False
+        self.visualize_mode = True
 
         # ros settings
         self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
+        if self.visualize_mode:
+            self.circles_pub = self.create_publisher(MarkerArray, 'candidates', 10)
         self.subscription = self.create_subscription(
             Obstacles,
             'raw_obstacles',
@@ -52,21 +57,6 @@ class LidarLocalization(Node): # inherit from Node
         self.newPose = False
         self.R = np.array([[0.05**2, 0.0], [0.0, 0.05**2]]) # R: measurement noise; TODO: tune the value
         self.lidar_pose_msg = PoseWithCovarianceStamped()
-
-    # def listener_callback(self, msg):
-    #     self.get_logger().info('I heard: "%s"' % msg.data)
-    #     # lidar_pose_msg
-    #     lidar_pose_msg = PoseWithCovarianceStamped()
-    #     lidar_pose_msg.header.stamp = self.get_clock().now().to_msg()
-    #     lidar_pose_msg.header.frame_id = 'base_link'
-    #     lidar_pose_msg.pose.pose.position.x = 1.0
-    #     lidar_pose_msg.pose.pose.position.y = 2.0
-    #     lidar_pose_msg.pose.pose.position.z = 3.0
-    #     lidar_pose_msg.pose.pose.orientation.x = 0.0
-    #     lidar_pose_msg.pose.pose.orientation.y = 0.0
-    #     lidar_pose_msg.pose.pose.orientation.z = 0.0
-    #     lidar_pose_msg.pose.pose.orientation.w = 1.0
-    #     self.lidar_pose_pub.publish(lidar_pose_msg)
     
     def obstacle_callback(self, msg):
         self.get_logger().debug('obstacle detected')
@@ -140,7 +130,27 @@ class LidarLocalization(Node): # inherit from Node
         S_det = np.linalg.det(S)
         normalizer = 1 / np.sqrt((2 * np.pi) ** 2 * S_det)
 
-        likelihood_threshold = 0.1  # Define a threshold for likelihood
+        likelihood_threshold = 0  # Define a threshold for likelihood
+        if self.visualizer_mode:
+            marker = Marker()
+            marker.header.frame_id = "robot"
+            marker.header.stamp = self.get_clock().now().to_msg()
+            marker.ns = "candidates"
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+            marker.scale.x = 0.1
+            marker.scale.y = 0.1
+            marker.scale.z = 0.01
+
+            text_marker = Marker()
+            text_marker.header.frame_id = "robot"
+            text_marker.header.stamp = self.get_clock().now().to_msg()
+            text_marker.ns = "text"
+            text_marker.type = Marker.TEXT_VIEW_FACING
+            text_marker.action = Marker.ADD
+            text_marker.scale.z = 0.1
+            text_marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)  # White text
+            marker_id = 0
 
         for obs in obs_raw:
             r_z = np.sqrt(obs[0] ** 2 + obs[1] ** 2)
@@ -152,7 +162,24 @@ class LidarLocalization(Node): # inherit from Node
             likelihood = likelihood / normalizer
             if likelihood > likelihood_threshold:
                 obs_candidates.append({'position': obs, 'probability': likelihood})
-        
+                if self.visualize_mode:
+                    # use visualization_msgs to visualize the likelihood
+                    marker.pose.position.x = obs[0]
+                    marker.pose.position.y = obs[1]
+                    marker.pose.position.z = 0.0
+                    marker.color = ColorRGBA(r=0.0, g=0.5, b=1.0, a=likelihood)
+                    marker_id += 1
+                    marker.id = marker_id
+                    marker_array.markers.append(marker)
+                    text_marker.pose.position.x = obs[0]
+                    text_marker.pose.position.y = obs[1]
+                    text_marker.pose.position.z = 0.1
+                    text_marker.text = f"{likelihood:.2f}"
+                    text_marker.id = marker_id
+                    marker_array.markers.append(text_marker)
+        if self.visualize_mode:
+            self.circles_pub.publish(marker_array)
+
         return obs_candidates
 
     def get_landmarks_candidate(self, landmarks_map, obs_raw, robot_pose, P_pred, R):

@@ -44,9 +44,9 @@ class ProbabilityCirclePublisher(Node):
 
             # Set the color based on the probability
             color_intensity = float(probability)  # Ensure probability is a float
-            marker.color = ColorRGBA(r=float(0),  # Red decreases with probability
-                                     g=float(128/255),  # Green increases with probability
-                                     b=float(1),  # No blue
+            marker.color = ColorRGBA(r=float(0), 
+                                     g=float(128/255), 
+                                     b=float(1), 
                                      a=color_intensity)  # Transparency
 
             # Add the marker to the array

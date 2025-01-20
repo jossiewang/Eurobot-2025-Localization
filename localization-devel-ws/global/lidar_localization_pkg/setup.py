@@ -26,6 +26,7 @@ setup(
         'obstacle_detector',
         'visualization_msgs',
         'std_msgs',
+        'tf2_ros',
     ],
     zip_safe=True,
     maintainer='jossiew621',
@@ -44,6 +45,7 @@ setup(
         'console_scripts': [
             'lidar_localization = lidar_localization_pkg.lidar_member_function:main',
             'circle_publisher = lidar_localization_pkg.probability_circle_publisher:main',
+            'pred_publisher = lidar_localization_pkg.pred_publisher:main',
         ],
     },
 )
