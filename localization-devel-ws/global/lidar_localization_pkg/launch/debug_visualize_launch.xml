@@ -4,6 +4,9 @@
 
     <!-- <node pkg="tf2_ros" exec="static_transform_publisher" name="static_transform_publisher" output="screen" args="0 0 0 0 0 0 map laser_link" /> -->
     <!-- Arguments: x y z yaw pitch roll frame_id child_frame_id -->
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="static_transform_publisher_a" output="screen" args="3.094 0.052 0 0 0 0 map beacon_a" />
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="static_transform_publisher_b" output="screen" args="3.094 1.948 0 0 0 0 map beacon_b" />
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="static_transform_publisher_c" output="screen" args="-0.094 1.0 0 0 0 0 map beacon_c" />
 
     <!-- launch pred_publisher -->
     <node pkg="lidar_localization_pkg" exec="pred_publisher" name="pred_publisher" output="screen">

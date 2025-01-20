@@ -28,11 +28,13 @@ class LidarLocalization(Node): # inherit from Node
                     ]
         # set debug mode
         self.debug_mode = False
-        self.visualize_mode = True
+        self.visualize_candidate = True
+        self.beacon_no = 0
+
 
         # ros settings
         self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
-        if self.visualize_mode:
+        if self.visualize_candidate:
             self.circles_pub = self.create_publisher(MarkerArray, 'candidates', 10)
         self.subscription = self.create_subscription(
             Obstacles,
@@ -164,7 +166,26 @@ class LidarLocalization(Node): # inherit from Node
             likelihood = likelihood / normalizer
             if likelihood > likelihood_threshold:
                 obs_candidates.append({'position': obs, 'probability': likelihood})
-                if self.visualize_mode:
+                if self.visualize_candidate and self.beacon_no == 1:
+                    marker = Marker()
+                    marker.header.frame_id = "robot_predict"
+                    marker.header.stamp = self.get_clock().now().to_msg()
+                    marker.ns = "candidates"
+                    marker.type = Marker.SPHERE
+                    marker.action = Marker.ADD
+                    marker.scale.x = 0.1
+                    marker.scale.y = 0.1
+                    marker.scale.z = 0.01
+
+                    text_marker = Marker()
+                    text_marker.header.frame_id = "robot_predict"
+                    text_marker.header.stamp = self.get_clock().now().to_msg()
+                    text_marker.ns = "text"
+                    text_marker.type = Marker.TEXT_VIEW_FACING
+                    text_marker.action = Marker.ADD
+                    text_marker.scale.z = 0.1
+                    text_marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)  # White text
+
                     # use visualization_msgs to visualize the likelihood
                     marker.pose.position.x = obs[0]
                     marker.pose.position.y = obs[1]
@@ -179,15 +200,19 @@ class LidarLocalization(Node): # inherit from Node
                     text_marker.text = f"{likelihood:.2f}"
                     text_marker.id = marker_id
                     marker_array.markers.append(text_marker)
-        if self.visualize_mode:
+        if self.visualize_candidate and self.beacon_no == 1:
             self.circles_pub.publish(marker_array)
             self.get_logger().debug("Published marker array")
+            # clean up
+            marker_array.markers.clear()
 
         return obs_candidates
 
     def get_landmarks_candidate(self, landmarks_map, obs_raw, robot_pose, P_pred, R):
         landmarks_candidate = []
+        self.beacon_no = 0
         for landmark in landmarks_map:
+            self.beacon_no += 1
             candidate = {
                 'landmark': landmark,
                 'obs_candidates': self.get_obs_candidate(robot_pose, P_pred, R, landmark, obs_raw)
