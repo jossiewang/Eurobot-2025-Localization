@@ -67,21 +67,21 @@ class LidarLocalization(Node): # inherit from Node
         self.obs_time = msg.header.stamp
         # data processing
         if self.newPose == False: # Check if robot_pose or P_pred is empty
-            self.print_debug("no new robot pose or P_pred")
+            self.get_logger().debug("no new robot pose or P_pred")
             return
         self.landmarks_candidate = self.get_landmarks_candidate(self.landmarks_map, self.obs_raw, self.robot_pose, self.P_pred, self.R)
         self.landmarks_set = self.get_landmarks_set(self.landmarks_candidate)
         if len(self.landmarks_set) == 0:
-            self.print_debug("empty landmarks set")
+            self.get_logger().debug("empty landmarks set")
             return
         self.lidar_pose, self.lidar_cov = self.get_lidar_pose(self.landmarks_set, self.landmarks_map)
         # clear used data
         self.clear_data()
     
     def pred_pose_callback(self, msg):
-        # self.print_debug("Robot pose callback triggered")
+        # self.get_logger().debug("Robot pose callback triggered")
         self.newPose = True
-        orientation = euler_from_quaternion(msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w)[2] # raw, pitch, *yaw
+        orientation = euler_from_quaternion(msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w) # raw, pitch, *yaw
         # check orientation range
         if orientation < 0:
             orientation += 2 * np.pi
@@ -131,7 +131,7 @@ class LidarLocalization(Node): # inherit from Node
         normalizer = 1 / np.sqrt((2 * np.pi) ** 2 * S_det)
 
         likelihood_threshold = 0  # Define a threshold for likelihood
-        if self.visualizer_mode:
+        if self.visualize_mode:
             marker = Marker()
             marker.header.frame_id = "robot_predict"
             marker.header.stamp = self.get_clock().now().to_msg()
@@ -151,6 +151,8 @@ class LidarLocalization(Node): # inherit from Node
             text_marker.scale.z = 0.1
             text_marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)  # White text
             marker_id = 0
+
+            marker_array = MarkerArray()
 
         for obs in obs_raw:
             r_z = np.sqrt(obs[0] ** 2 + obs[1] ** 2)
@@ -179,6 +181,7 @@ class LidarLocalization(Node): # inherit from Node
                     marker_array.markers.append(text_marker)
         if self.visualize_mode:
             self.circles_pub.publish(marker_array)
+            self.get_logger().debug("Published marker array")
 
         return obs_candidates
 
@@ -353,29 +356,29 @@ def quaternion_from_euler(ai, aj, ak):
     sj = np.sin(aj)
     ck = np.cos(ak)
     sk = np.sin(ak)
-    cc = ci*ck
-    cs = ci*sk
-    sc = si*ck
-    ss = si*sk
-    q = np.empty((4, ))
-    q[0] = cj*sc - sj*cs
-    q[1] = cj*ss + sj*cc
-    q[2] = cj*cs - sj*sc
-    q[3] = cj*cc + sj*ss
+    cc = ci * ck
+    cs = ci * sk
+    sc = si * ck
+    ss = si * sk
+    q = np.empty((4,))
+    q[0] = cj * sc - sj * cs
+    q[1] = cj * ss + sj * cc
+    q[2] = cj * cs - sj * sc
+    q[3] = cj * cc + sj * ss
     return q
 
 def euler_from_quaternion(x, y, z, w):
     t0 = +2.0 * (w * x + y * z)
     t1 = +1.0 - 2.0 * (x * x + y * y)
-    roll_x = np.atan2(t0, t1)
+    roll_x = np.arctan2(t0, t1)
     t2 = +2.0 * (w * y - z * x)
     t2 = +1.0 if t2 > +1.0 else t2
     t2 = -1.0 if t2 < -1.0 else t2
-    pitch_y = np.asin(t2)
+    pitch_y = np.arcsin(t2)
     t3 = +2.0 * (w * z + x * y)
     t4 = +1.0 - 2.0 * (y * y + z * z)
-    yaw_z = np.atan2(t3, t4)
-    return yaw_z # in radians
+    yaw_z = np.arctan2(t3, t4)
+    return yaw_z  # in radians
 
 def angle_limit_checking(theta):
     while theta > np.pi:
