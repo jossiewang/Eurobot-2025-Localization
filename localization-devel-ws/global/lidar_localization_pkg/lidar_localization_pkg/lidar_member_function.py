@@ -133,7 +133,7 @@ class LidarLocalization(Node): # inherit from Node
         likelihood_threshold = 0  # Define a threshold for likelihood
         if self.visualizer_mode:
             marker = Marker()
-            marker.header.frame_id = "robot"
+            marker.header.frame_id = "robot_predict"
             marker.header.stamp = self.get_clock().now().to_msg()
             marker.ns = "candidates"
             marker.type = Marker.SPHERE
@@ -143,7 +143,7 @@ class LidarLocalization(Node): # inherit from Node
             marker.scale.z = 0.01
 
             text_marker = Marker()
-            text_marker.header.frame_id = "robot"
+            text_marker.header.frame_id = "robot_predict"
             text_marker.header.stamp = self.get_clock().now().to_msg()
             text_marker.ns = "text"
             text_marker.type = Marker.TEXT_VIEW_FACING

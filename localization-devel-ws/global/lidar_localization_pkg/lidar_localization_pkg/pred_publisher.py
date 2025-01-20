@@ -9,7 +9,7 @@ class PredPublisher(Node):
     def __init__(self):
         super().__init__('pred_publisher')
         self.pose_pred = PoseWithCovarianceStamped()
-        self.pose_pred.header.frame_id = 'robot'
+        self.pose_pred.header.frame_id = 'map'
         self.pose_pred.pose.pose.position.x = 0.0
         self.pose_pred.pose.pose.position.y = 0.0
         self.pose_pred.pose.pose.position.z = 0.0
@@ -43,7 +43,7 @@ class PredPublisher(Node):
         t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = 'map'
-        t.child_frame_id = 'robot'
+        t.child_frame_id = 'robot_predict'
         t.transform.translation.x = self.pose_pred.pose.pose.position.x
         t.transform.translation.y = self.pose_pred.pose.pose.position.y
         t.transform.translation.z = self.pose_pred.pose.pose.position.z
