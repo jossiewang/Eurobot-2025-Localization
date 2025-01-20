@@ -12,25 +12,37 @@ class LidarLocalization(Node): # inherit from Node
 
     def __init__(self):
         super().__init__('lidar_localization_node')
-        # Set the side (0 for blue and 1 for yellow); TODO: use param
-        side = 1
-        if side == 0:
-            landmarks_map = [
-                        np.array([-0.094, 0.052]),
-                        np.array([-0.094, 1.948]),
-                        np.array([3.094, 1.0])
-                    ]
-        elif side == 1:
-            landmarks_map = [
-                        np.array([3.094, 0.052]),
-                        np.array([3.094, 1.948]),
-                        np.array([-0.094, 1.0])
-                    ]
-        # set debug mode
-        self.debug_mode = False
-        self.visualize_candidate = True
-        self.beacon_no = 0
 
+        # Declare parameters
+        self.declare_parameter('side', 0)
+        self.declare_parameter('debug_mode', False)
+        self.declare_parameter('visualize_candidate', True)
+        self.declare_parameter('likelihood_threshold', 0.001)
+        self.declare_parameter('consistency_threshold', 0.9)
+
+        # Get parameters
+        self.side = self.get_parameter('side').get_parameter_value().integer_value
+        self.debug_mode = self.get_parameter('debug_mode').get_parameter_value().bool_value
+        self.visualize_candidate = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
+        self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
+        self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
+
+        # Set the landmarks map based on the side
+        if self.side == 0:
+            self.landmarks_map = [
+                np.array([-0.094, 0.052]),
+                np.array([-0.094, 1.948]),
+                np.array([3.094, 1.0])
+            ]
+        elif self.side == 1:
+            self.landmarks_map = [
+                np.array([3.094, 0.052]),
+                np.array([3.094, 1.948]),
+                np.array([-0.094, 1.0])
+            ]
+
+        # set debug mode
+        self.beacon_no = 0
 
         # ros settings
         self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
@@ -52,7 +64,6 @@ class LidarLocalization(Node): # inherit from Node
         # ros debug logger
         self.get_logger().debug('Lidar Localization Node has been initialized')
 
-        self.landmarks_map = landmarks_map
         self.init_landmarks_map(self.landmarks_map)
         self.robot_pose = []
         self.P_pred = []
@@ -132,7 +143,6 @@ class LidarLocalization(Node): # inherit from Node
         S_det = np.linalg.det(S)
         normalizer = 1 / np.sqrt((2 * np.pi) ** 2 * S_det)
 
-        likelihood_threshold = 0.001  # Define a threshold for likelihood
         marker_id = 0
         marker_array = MarkerArray()
 
@@ -144,7 +154,7 @@ class LidarLocalization(Node): # inherit from Node
             likelihood = normalizer * np.exp(-0.5 * di_square)
             # normalize: max likelihood is for di_square = 0
             likelihood = likelihood / normalizer
-            if likelihood > likelihood_threshold:
+            if likelihood > self.likelihood_threshold:
                 obs_candidates.append({'position': obs, 'probability': likelihood})
                 if self.visualize_candidate and self.beacon_no == 1:
                     marker = Marker()
@@ -208,26 +218,6 @@ class LidarLocalization(Node): # inherit from Node
 
     def get_landmarks_set(self, landmarks_candidate):
         landmarks_set = []
-        # ## Permutations for two landmarks
-        # landmark_indices = list(range(len(landmarks_candidate))) # Generate all combinations of landmarks
-        # for comb in combinations(landmark_indices, 2):
-        #     for i in range(len(landmarks_candidate[comb[0]]['obs_candidates'])):
-        #         for j in range(len(landmarks_candidate[comb[1]]['obs_candidates'])):
-        #             set = {
-        #             'beacons': {
-        #                 comb[0]: landmarks_candidate[comb[0]]['obs_candidates'][i]['position'],
-        #                 comb[1]: landmarks_candidate[comb[1]]['obs_candidates'][j]['position']
-        #                 }
-        #             }
-        #             # consistency of the set
-        #             set['consistency'] = self.get_geometry_consistency(set['beacons'])
-        #             if set['consistency'] < 0.99: #TODO: tune the value
-        #                 self.get_logger().debug(f"Geometry consistency is less than 0.96: {set['consistency']}")
-        #                 continue
-        #             # probability of the set
-        #             set['probability_set'] = landmarks_candidate[comb[0]]['obs_candidates'][i]['probability'] * landmarks_candidate[comb[1]]['obs_candidates'][j]['probability']
-        #             landmarks_set.append(set)
-        ## Permutations for three landmarks
         for i in range(len(landmarks_candidate[0]['obs_candidates'])):
             for j in range(len(landmarks_candidate[1]['obs_candidates'])):
                 for k in range(len(landmarks_candidate[2]['obs_candidates'])):
@@ -240,8 +230,8 @@ class LidarLocalization(Node): # inherit from Node
                     }
                     # consistency of the set
                     set['consistency'] = self.get_geometry_consistency(set['beacons'])
-                    if set['consistency'] < 0.9:
-                        self.get_logger().debug(f"Geometry consistency is less than 0.9: {set['consistency']}")
+                    if set['consistency'] < self.consistency_threshold:
+                        self.get_logger().debug(f"Geometry consistency is less than {self.consistency_threshold}: {set['consistency']}")
                         continue
                     # probability of the set
                     set['probability_set'] = landmarks_candidate[0]['obs_candidates'][i]['probability'] * landmarks_candidate[1]['obs_candidates'][j]['probability'] * landmarks_candidate[2]['obs_candidates'][k]['probability']
