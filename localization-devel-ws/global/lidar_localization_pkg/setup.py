@@ -24,6 +24,8 @@ setup(
         'rclpy',
         'geometry_msgs',
         'obstacle_detector',
+        'visualization_msgs',
+        'std_msgs',
     ],
     zip_safe=True,
     maintainer='jossiew621',
@@ -40,7 +42,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'lidar_localization = lidar_localization_pkg.lidar_member_function:main'
+            'lidar_localization = lidar_localization_pkg.lidar_member_function:main',
+            'circle_publisher = lidar_localization_pkg.probability_circle_publisher:main',
         ],
     },
 )
