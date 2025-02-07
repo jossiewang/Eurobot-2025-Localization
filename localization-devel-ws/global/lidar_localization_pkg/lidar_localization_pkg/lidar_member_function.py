@@ -13,35 +13,41 @@ import time
 class LidarLocalization(Node): # inherit from Node
 
     def __init__(self):
-        super().__init__('lidar_localization_node')
+        # super().__init__('lidar_localization_node')
 
-        # Declare parameters
-        self.declare_parameter('side', 0)
-        self.declare_parameter('debug_mode', False)
-        self.declare_parameter('visualize_candidate', True)
-        self.declare_parameter('likelihood_threshold', 0.001)
-        self.declare_parameter('consistency_threshold', 0.9)
+        # # Declare parameters
+        # self.declare_parameter('side', 0)
+        # self.declare_parameter('debug_mode', False)
+        # self.declare_parameter('visualize_candidate', True)
+        # self.declare_parameter('likelihood_threshold', 0.001)
+        # self.declare_parameter('consistency_threshold', 0.9)
 
         # Get parameters
-        self.side = self.get_parameter('side').get_parameter_value().integer_value
-        self.debug_mode = self.get_parameter('debug_mode').get_parameter_value().bool_value
-        self.visualize_candidate = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
-        self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
-        self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
+        # self.side = self.get_parameter('side').get_parameter_value().integer_value
+        # self.debug_mode = self.get_parameter('debug_mode').get_parameter_value().bool_value
+        # self.visualize_candidate = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
+        # self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
+        # self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
+        self.debug_mode = False
+        self.visualize_candidate = False
+        self.likelihood_threshold = 0.0
+        self.consistency_threshold = 0.9
+
 
         # Set the landmarks map based on the side
-        if self.side == 0:
-            self.landmarks_map = [
-                np.array([-0.094, 0.052]),
-                np.array([-0.094, 1.948]),
-                np.array([3.094, 1.0])
-            ]
-        elif self.side == 1:
-            self.landmarks_map = [
-                np.array([3.094, 0.052]),
-                np.array([3.094, 1.948]),
-                np.array([-0.094, 1.0])
-            ]
+        # if self.side == 0:
+        #     self.landmarks_map = [
+        #         np.array([-0.094, 0.052]),
+        #         np.array([-0.094, 1.948]),
+        #         np.array([3.094, 1.0])
+        #     ]
+        # elif self.side == 1:
+        #     self.landmarks_map = [
+        #         np.array([3.094, 0.052]),
+        #         np.array([3.094, 1.948]),
+        #         np.array([-0.094, 1.0])
+        #     ]
+        self.landmarks_map = [np.array([0.0, 0.0]), np.array([0.0, 2.0]), np.array([3.0, 1.0])]
 
         # set debug mode
         self.beacon_no = 0

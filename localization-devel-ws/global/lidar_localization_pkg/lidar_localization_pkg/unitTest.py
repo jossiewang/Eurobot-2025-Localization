@@ -23,21 +23,12 @@ class TestLidarLocalization(unittest.TestCase):
         # give more fake data to mess around
         obs_raw_mess = [np.array([0.5, 0.7]), np.array([0.6, 0.2]), np.array([0.4, 0.3]), np.array([3.2, 1.6]), np.array([2.5, 2]), np.array([2.3, 1.0]), np.array([0.3, 1.0]), np.array([1.1, 1.1]), np.array([0.2, 0.0])]
         self.obs_raw.extend(obs_raw_mess)
-        # print time to evaluate the time cost
-        start_time = time.time()
         landmarks_candidate = self.beacon_prob.get_landmarks_candidate(self.landmarks_map, self.obs_raw, self.robot_pose, self.P_pred, self.R)
-        print('Time cost for landmarks_candidate: ', time.time() - start_time)
-        start_time = time.time()
         self.landmarks_candidate = landmarks_candidate
-        print('Time cost for landmarks_candidate: ', time.time() - start_time)
 
     def test_get_robot_pose(self):
-        start_time = time.time()
         landmarks_set = self.beacon_prob.get_landmarks_set(self.landmarks_candidate)
-        print('Time cost for landmarks_set: ', time.time() - start_time)
-        start_time = time.time()
         self.lidar_pose, self.P_post = self.beacon_prob.get_lidar_pose(landmarks_set, self.landmarks_map)
-        print('Time cost for lidar_pose: ', time.time() - start_time)
         self.assertEqual(len(landmarks_set), 6)  # 2 * 2 * 2 = 8 permutations
         for set in landmarks_set:
             self.assertIn('beacons', set)
