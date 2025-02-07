@@ -18,12 +18,17 @@ setup(
         (os.path.join('share', package_name), ['package.xml']),
         # Include all launch files.
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*'))),
+        # Include all config files.
+        (os.path.join('share', package_name, 'config'), glob(os.path.join('config', '*.yml'))),
     ],
     install_requires=[
         'setuptools',
         'rclpy',
         'geometry_msgs',
         'obstacle_detector',
+        'visualization_msgs',
+        'std_msgs',
+        'tf2_ros',
     ],
     zip_safe=True,
     maintainer='jossiew621',
@@ -40,7 +45,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'lidar_localization = lidar_localization_pkg.lidar_member_function:main'
+            'lidar_localization = lidar_localization_pkg.lidar_member_function:main',
+            'circle_publisher = lidar_localization_pkg.probability_circle_publisher:main',
+            'pred_publisher = lidar_localization_pkg.pred_publisher:main',
         ],
     },
 )
