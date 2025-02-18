@@ -42,7 +42,7 @@ services:
       # - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp=value
 
   ros1:
-    image: jossiewang/eurobot2025-localization:ros1-serial
+    image: jossiewang/eurobot2025-localization:rosserial-ttyusb0
     container_name: ros1
     stdin_open: true
     tty: true
@@ -57,7 +57,7 @@ services:
     command: /bin/bash -c "
             source /opt/ros/noetic/setup.bash && 
             source ~/ws/devel/setup.bash &&
-            sudo chmod 777 /dev/ttyACM0 &&
+            sudo chmod 777 /dev/ttyUSB0 &&
             roslaunch odometry odometry_comm.launch"
 
   ros2-localization-dev:
