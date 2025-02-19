@@ -14,6 +14,7 @@
     <executable cmd="ros2 bag record --output $(var bag_folder)/$(var name_of_record_file) /odoo_googoogoo /raw_obstacles /imu/data_raw /final_pose /lidar_pose "  output="screen" if="$(var record_bag)"/>
 
     <node pkg="ekf" exec="ekf_node" name="ekf_node" output="screen">
+        <remap from="odoo_googoogoo" to="driving_duaiduaiduai" />
         <param name="robot_parent_frame_id" value="map" />
         <param name="robot_frame_id" value="base_footprint" />
         <param name="/use_sim_time" value="false" />
@@ -30,9 +31,11 @@
     <include file="$(find-pkg-share foxglove_bridge)/launch/foxglove_bridge_launch.xml" if="$(var use_foxglove)">
         <arg name="port" value="8765" />
     </include>
-    <!-- <executable cmd="ros2 topic echo /odoo_googoogoo geometry_msgs/Twist"/> -->
-
-    <include file="$(find-pkg-share lidar_localization_pkg)/launch/view_obstacles_launch.xml" />
-    
+    <!-- 90 degree to base_footprint -->
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="robot_to_laser" output="screen" args="--x 0 --y 0 --z 0 --roll 0 --pitch 0 --yaw 1.57 --frame-id /base_footprint --child-frame-id /laser" />
+    <!-- rplidar -->
+    <include file="$(find-pkg-share lidar_localization_pkg)/launch/rplidar_s3_launch.py" />
+    <!-- obstacles -->
+    <include file="$(find-pkg-share lidar_localization_pkg)/launch/obstacle_extractor_launch.xml" />
 
 </launch>

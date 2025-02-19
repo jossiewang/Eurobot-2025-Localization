@@ -91,7 +91,7 @@ class EKFFootprintBroadcaster(Node):
 
     def init_subscribers(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 10)
-        self.create_subscription(Twist, 'odoo_googoogoo', self.odom_callback, 10)
+        self.create_subscription(Twist, 'driving_duaiduaiduai', self.odom_callback, 10)
         self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,10)
     
     def init_callback(self, msg):
