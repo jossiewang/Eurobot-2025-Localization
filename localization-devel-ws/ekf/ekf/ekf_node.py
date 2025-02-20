@@ -183,7 +183,7 @@ class EKFFootprintBroadcaster(Node):
         self.ekf_predict(v_x, v_y, w, dt) 
 
     def ekf_predict(self, v_x, v_y, w, dt):
-        theta = self.X[5]
+        theta = self.X[2]
         F = np.eye(6)
         F[0, 3] = dt * math.cos(theta)
         F[0, 4] = - dt * math.sin(theta)
