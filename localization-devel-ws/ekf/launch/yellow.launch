@@ -30,9 +30,13 @@
     <include file="$(find-pkg-share foxglove_bridge)/launch/foxglove_bridge_launch.xml" if="$(var use_foxglove)">
         <arg name="port" value="8765" />
     </include>
-    <!-- <executable cmd="ros2 topic echo /odoo_googoogoo geometry_msgs/Twist"/> -->
+    <!-- 90 degree to base_footprint -->
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="robot_to_laser" output="screen" args="--x 0 --y 0 --z 0 --roll 0 --pitch 0 --yaw 1.57 --frame-id /base_footprint --child-frame-id /laser" />
+    <!-- rplidar -->
+    <include file="$(find-pkg-share lidar_localization_pkg)/launch/rplidar_s3_launch.py" />
+    <!-- obstacles -->
+    <include file="$(find-pkg-share lidar_localization_pkg)/launch/obstacle_extractor_launch.xml" />
 
-    <include file="$(find-pkg-share lidar_localization_pkg)/launch/view_obstacles_launch.xml" />
-    
+    <include file="$(find-pkg-share local_filter)/launch/local_filter_whole.xml" />
 
 </launch>
