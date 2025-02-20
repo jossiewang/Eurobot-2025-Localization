@@ -42,7 +42,7 @@ services:
       # - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp=value
 
   ros1:
-    image: jossiewang/eurobot2025-localization:rosserial-ttyusb0-duai
+    image: jossiewang/eurobot2025-localization:rosserial-chassis
     container_name: ros1
     stdin_open: true
     tty: true
@@ -57,7 +57,6 @@ services:
     command: /bin/bash -c "
             source /opt/ros/noetic/setup.bash && 
             source ~/ws/devel/setup.bash &&
-            sudo chmod 777 /dev/ttyUSB0 &&
             roslaunch odometry odometry_comm.launch"
 
   ros2-localization-dev:
@@ -66,7 +65,7 @@ services:
       dockerfile: Dockerfile
       args:
         USERNAME: user
-    image: jossiewang/eurobot2025-localization:testBot-ros2-built # TODO: make a ros-ws-built image
+    image: jossiewang/eurobot2025-localization:testbot-release # TODO: make a ros-ws-built image
     container_name: localization-2025-dev-ros2
     stdin_open: true
     tty: true
