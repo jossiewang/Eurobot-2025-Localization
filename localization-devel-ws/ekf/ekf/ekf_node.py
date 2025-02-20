@@ -53,16 +53,20 @@ class EKFFootprintBroadcaster(Node):
 
         self.X = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State vector: x, y, theta, vx, vy, w
         self.P = np.eye(6) * 9 * 1e-4
-        self.P[5, 5] = 0.003
-        self.P[2, 2] = 1e-6
-        self.P[3, 3] = 1e-6
-        self.P[4, 4] = 1e-6
+        self.P[2, 2] = 0.003 # theta
+        self.P[3, 3] = 1e-6 # vx
+        self.P[4, 4] = 1e-6 # vy
+        self.P[5, 5] = 1e-6 # w
 
         self.Q = np.eye(6) * 5 * 1e-11
-        self.Q[5, 5] = 3 * 1e-5
-        self.Q[2, 2] = 1e-6
-        self.Q[3, 3] = 1e-6
-        self.Q[4, 4] = 1e-6
+        # self.Q[2, 2] = 3 * 1e-5
+        # self.Q[3, 3] = 1e-6
+        # self.Q[4, 4] = 1e-6
+        # self.Q[5, 5] = 1e-6
+
+        self.Q[3, 3] = 1e-5 # vx
+        self.Q[4, 4] = 1e-5 # vy
+        self.Q[5, 5] = 1e-11 # w
 
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
@@ -72,7 +76,7 @@ class EKFFootprintBroadcaster(Node):
         self.init_subscribers()
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 10)
         # self.create_timer(1.0 / self.rate, self.footprint_publish)
-        self.create_timer(1, self.camera_callback)
+        # self.create_timer(1, self.camera_callback)
         
         self.footprint_publish()
 
@@ -80,7 +84,7 @@ class EKFFootprintBroadcaster(Node):
     def claim_parameters(self):
         self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('robot_frame_id', 'base_footprint')
-        self.declare_parameter('camera_frame_id', 'marker_6')
+        self.declare_parameter('camera_frame_id', 'aruco_marker_frame')
         self.declare_parameter('camera_parent_id', 'map')
 
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
@@ -91,8 +95,8 @@ class EKFFootprintBroadcaster(Node):
 
     def init_subscribers(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 10)
-        self.create_subscription(Twist, 'driving_duaiduaiduai', self.odom_callback, 10)
         self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,10)
+        self.create_subscription(Odometry, 'local_filter', self.local_callback, 10)
     
     def init_callback(self, msg):
 
@@ -102,12 +106,12 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.orientation.z,
             msg.pose.orientation.w
         )
-        self.X[5] = theta
+        self.X[2] = theta
         if msg.covariance[0] > 0:
             if msg.covariance[0] < 1:
                 self.P[0, 0] = msg.covariance[0]
                 self.P[1, 1] = msg.covariance[7]
-                self.P[5, 5] = msg.covariance[35]
+                self.P[2, 2] = msg.covariance[35]
         self.X[0] = msg.pose.position.x
         self.X[1] = msg.pose.position.y
 
@@ -156,14 +160,25 @@ class EKFFootprintBroadcaster(Node):
         except TransformException as ex:
             self.get_logger().warn(f"TransformException in camera_callback: {ex}")
 
-    def odom_callback(self, msg):
+    # def odom_callback(self, msg):
+    #     current_time = self.get_clock().now().nanoseconds / 1e9
+    #     dt = current_time - self.last_odom_time
+    #     self.last_odom_time = current_time
+
+    #     v_x = msg.linear.x
+    #     v_y = msg.linear.y
+    #     w = msg.angular.z 
+    #     # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
+    #     self.ekf_predict(v_x, v_y, w, dt) 
+
+    def local_callback(self, msg):
         current_time = self.get_clock().now().nanoseconds / 1e9
         dt = current_time - self.last_odom_time
         self.last_odom_time = current_time
 
-        v_x = msg.linear.x
-        v_y = msg.linear.y
-        w = msg.angular.z 
+        v_x = msg.twist.twist.linear.x
+        v_y = msg.twist.twist.linear.y
+        w = msg.twist.twist.angular.z
         # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
         self.ekf_predict(v_x, v_y, w, dt) 
 
@@ -178,8 +193,8 @@ class EKFFootprintBroadcaster(Node):
 
         self.X[0] += v_x * dt * math.cos(theta) - v_y * dt * math.sin(theta)
         self.X[1] += v_x * dt * math.sin(theta) + v_y * dt  * math.cos(theta)
-        self.X[5] += w * dt
-        self.X[5] = normalize_angle(self.X[5])
+        self.X[2] += w * dt
+        self.X[2] = normalize_angle(self.X[2])
        
         self.P = F @ self.P @ F.T + self.Q
      
@@ -193,12 +208,12 @@ class EKFFootprintBroadcaster(Node):
         H = np.zeros((3, 6))
         H[0, 0] = 1  
         H[1, 1] = 1 
-        H[2, 5] = 1
+        H[2, 2] = 1
         S = H @ self.P @ H.T + R
         K = self.P @ H.T @ np.linalg.inv(S)
 
         self.X += K @ (z - H @ self.X)
-        self.X[5] = normalize_angle(self.X[5])
+        self.X[2] = normalize_angle(self.X[2])
 
         I = np.eye(6)
         self.P = (I - K @ H) @ self.P @ (I - K @ H).T + K @ R @ K.T
@@ -217,7 +232,7 @@ class EKFFootprintBroadcaster(Node):
         t.transform.translation.x = self.X[0]
         t.transform.translation.y = self.X[1]
         t.transform.translation.z = 0.0
-        quat = quaternion_from_euler(0, 0, self.X[5])
+        quat = quaternion_from_euler(0, 0, self.X[2])
         t.transform.rotation.x = quat[0]
         t.transform.rotation.y = quat[1]
         t.transform.rotation.z = quat[2]
@@ -234,7 +249,7 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose.pose.pose.orientation.w = quat[3]
         self.final_pose.pose.covariance[0] = self.P[0, 0]
         self.final_pose.pose.covariance[7] = self.P[1, 1]
-        self.final_pose.pose.covariance[35] = self.P[5, 5]
+        self.final_pose.pose.covariance[35] = self.P[2, 2]
         self.ekf_pose_publisher.publish(self.final_pose)
 
 
