@@ -14,7 +14,6 @@
     <executable cmd="ros2 bag record --output $(var bag_folder)/$(var name_of_record_file) /odoo_googoogoo /raw_obstacles /imu/data_raw /final_pose /lidar_pose "  output="screen" if="$(var record_bag)"/>
 
     <node pkg="ekf" exec="ekf_node" name="ekf_node" output="screen">
-        <remap from="odoo_googoogoo" to="driving_duaiduaiduai" />
         <param name="robot_parent_frame_id" value="map" />
         <param name="robot_frame_id" value="base_footprint" />
         <param name="/use_sim_time" value="false" />
@@ -37,5 +36,7 @@
     <include file="$(find-pkg-share lidar_localization_pkg)/launch/rplidar_s3_launch.py" />
     <!-- obstacles -->
     <include file="$(find-pkg-share lidar_localization_pkg)/launch/obstacle_extractor_launch.xml" />
+
+    <include file="$(find-pkg-share local_filter)/launch/local_filter_whole.xml" />
 
 </launch>

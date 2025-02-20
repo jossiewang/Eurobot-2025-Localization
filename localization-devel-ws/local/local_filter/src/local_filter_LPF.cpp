@@ -70,8 +70,8 @@ public:
         odom_sub_ = nh_->create_subscription<geometry_msgs::msg::Twist>("odoo_googoogoo", 10, std::bind(&GlobalFilterNode::odomCallback, this, std::placeholders::_1));
         imu_sub_ = nh_->create_subscription<sensor_msgs::msg::Imu>("imu/data_cov", 10, std::bind(&GlobalFilterNode::imuCallback, this, std::placeholders::_1));
 
-        global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 100);
-        odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::Pose>("odom2map", 100);
+        global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 10);
+        odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::Pose>("odom2map", 10);
 
     }
 
@@ -153,7 +153,7 @@ public:
         // Apply low-pass filter to linear xy from odom
         linear_x_ = alpha_x * odom_msg.linear.x + (1 - alpha_x) * linear_x_;
         linear_y_ = alpha_y * odom_msg.linear.y + (1 - alpha_y) * linear_y_;
-        angular_z_=odom_msg.angular.z;
+        // angular_z_=odom_msg.angular.z;
        
         double cov_multi[3];
         cov_multi[0]=cov_multi_[0]*abs(odom_msg.linear.x);
@@ -188,7 +188,7 @@ public:
     }
 
     void imuCallback(const sensor_msgs::msg::Imu & imu_msg) {
-        // angular_z_ = imu_msg.angular_velocity.z;
+        angular_z_ = imu_msg.angular_velocity.z;
         // rclcpp::Time stamp=imu_msg.header.stamp; /* <!-- ADD --> */
         // double dt=stamp.seconds()-prev_stamp_.seconds(); /* <!-- ADD --> */
         // omni_model(linear_x_, linear_y_, angular_z_, dt); /* <!-- ADD -->  */
