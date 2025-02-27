@@ -216,7 +216,7 @@ class EKFFootprintBroadcaster(Node):
         self.X[2] = normalize_angle(self.X[2])
 
         I = np.eye(6)
-        self.P = (I - K @ H) @ self.P @ (I - K @ H).T + K @ R @ K.T
+        self.P = (I - K @ H) @ self.P @ (I - K @ H).T 
 
         # if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
         #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
