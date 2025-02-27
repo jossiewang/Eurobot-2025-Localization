@@ -1,6 +1,8 @@
 import rclpy
 from rclpy.node import Node
 
+from tf2_ros import Buffer, TransformListener, LookupException, ConnectivityException, ExtrapolationException
+
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from obstacle_detector.msg import Obstacles
 from visualization_msgs.msg import Marker, MarkerArray
@@ -19,6 +21,8 @@ class LidarLocalization(Node): # inherit from Node
         self.declare_parameter('visualize_candidate', True)
         self.declare_parameter('likelihood_threshold', 0.001)
         self.declare_parameter('consistency_threshold', 0.9)
+        self.declare_parameter('robot_frame_id', 'base_footprint')
+        self.declare_parameter('robot_parent_frame_id', 'map')
 
         # Get parameters
         self.side = self.get_parameter('side').get_parameter_value().integer_value
@@ -26,6 +30,8 @@ class LidarLocalization(Node): # inherit from Node
         self.visualize_candidate = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
         self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
+        self.robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
+        self.robot_parent_frame_id = self.get_parameter('robot_parent_frame_id').get_parameter_value().string_value
 
         # Set the landmarks map based on the side
         if self.side == 0:
@@ -53,7 +59,7 @@ class LidarLocalization(Node): # inherit from Node
             'raw_obstacles',
             self.obstacle_callback,
             10)
-        self.subscription = self.create_subscription(
+        self.subscription = self.create_subscription( # if TF is not available
             PoseWithCovarianceStamped, 
             'final_pose',
             self.pred_pose_callback,
@@ -68,28 +74,53 @@ class LidarLocalization(Node): # inherit from Node
         )
         self.subscription  # prevent unused variable warning
 
+        # tf2 buffer
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
         # ros debug logger
         self.get_logger().debug('Lidar Localization Node has been initialized')
 
         self.init_landmarks_map(self.landmarks_map)
         self.robot_pose = []
-        self.P_pred = []
+        self.P_pred = np.array([[0.05**2, 0.0, 0.0], [0.0, 0.05**2, 0.0], [0.0, 0.0, 0.1]]) # TODO: tune the value, fixed for now
         self.newPose = False
-        self.R = np.array([[0.05**2, 0.0], [0.0, 0.05**2]]) # R: measurement noise; TODO: tune the value
+        self.R = np.array([[0.001, 0.0], [0.0, 0.001]]) # measurement noise; TODO: tune the value
         self.lidar_pose_msg = PoseWithCovarianceStamped()
+        self.predict_transform = None
     
-    def obstacle_callback(self, msg):
+    def obstacle_callback(self, msg): # main
         self.get_logger().debug('obstacle detected')
-        # obstacle operation
         self.obs_raw = []
         for obs in msg.circles:
             self.obs_raw.append(np.array([obs.center.x, obs.center.y]))
         self.obs_time = msg.header.stamp
+        # check if TF is available. If true, use the TF. If false, use the latest topic
+        try:
+            self.predict_transform = self.tf_buffer.lookup_transform(
+                self.robot_parent_frame_id,
+                self.robot_frame_id,
+                self.obs_time
+            )
+            self.robot_pose = np.array([
+                self.predict_transform.transform.translation.x,
+                self.predict_transform.transform.translation.y,
+                euler_from_quaternion(
+                    self.predict_transform.transform.rotation.x,
+                    self.predict_transform.transform.rotation.y,
+                    self.predict_transform.transform.rotation.z,
+                    self.predict_transform.transform.rotation.w
+                )
+            ])
+        except (LookupException, ConnectivityException, ExtrapolationException) as e:
+            self.get_logger().error(f'Could not transform {self.robot_parent_frame_id} to {self.robot_frame_id}: {e}')
+            self.get_logger().debug("now try to use the latest topic")
+            if self.newPose == False: 
+                self.get_logger().error("no new predict topic, skip.")
+                return
+            
         # data processing
-        if self.newPose == False: # Check if robot_pose or P_pred is empty
-            self.get_logger().debug("no new robot pose or P_pred")
-            return
-        self.landmarks_candidate = self.get_landmarks_candidate(self.landmarks_map, self.obs_raw, self.robot_pose, self.P_pred, self.R)
+        self.landmarks_candidate = self.get_landmarks_candidate(self.landmarks_map, self.obs_raw)
         self.landmarks_set = self.get_landmarks_set(self.landmarks_candidate)
         if len(self.landmarks_set) == 0:
             self.get_logger().debug("empty landmarks set")
@@ -99,7 +130,6 @@ class LidarLocalization(Node): # inherit from Node
         self.clear_data()
     
     def pred_pose_callback(self, msg):
-        # self.get_logger().debug("Robot pose callback triggered")
         self.newPose = True
         orientation = euler_from_quaternion(msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w) # raw, pitch, *yaw
         # check orientation range
@@ -149,14 +179,15 @@ class LidarLocalization(Node): # inherit from Node
     def clear_data(self):
         self.obs_raw = []
         self.robot_pose = np.array([])
-        self.P_pred = np.array([])
         self.landmarks_candidate = []
         self.landmarks_set = []
         self.newPose = False
 
-    def get_obs_candidate(self, robot_pose, P_pred, R, landmark, obs_raw):
+    def get_obs_candidate(self, landmark, obs_raw):
         obs_candidates = []
-        x_r, y_r, phi_r = robot_pose
+        x_r, y_r, phi_r = self.robot_pose
+        if self.debug_mode:
+            print(f"Robot pose from TF: {self.robot_pose}")
         x_o, y_o = landmark
         r_prime = np.sqrt((x_o - x_r) ** 2 + (y_o - y_r) ** 2)
         # theta_rob = np.arctan2(
@@ -167,7 +198,7 @@ class LidarLocalization(Node): # inherit from Node
             [-(x_o - x_r) / r_prime, -(y_o - y_r) / r_prime, 0],
             [(y_o - y_r) / r_prime ** 2, -(x_o - x_r) / r_prime ** 2, -1]
         ])
-        S = H @ P_pred @ H.T + R
+        S = H @ self.P_pred @ H.T + self.R
         S_inv = np.linalg.inv(S)
         S_det = np.linalg.det(S)
         normalizer = 1 / np.sqrt((2 * np.pi) ** 2 * S_det)
@@ -227,14 +258,14 @@ class LidarLocalization(Node): # inherit from Node
 
         return obs_candidates
 
-    def get_landmarks_candidate(self, landmarks_map, obs_raw, robot_pose, P_pred, R):
+    def get_landmarks_candidate(self, landmarks_map, obs_raw):
         landmarks_candidate = []
         self.beacon_no = 0
         for landmark in landmarks_map:
             self.beacon_no += 1
             candidate = {
                 'landmark': landmark,
-                'obs_candidates': self.get_obs_candidate(robot_pose, P_pred, R, landmark, obs_raw)
+                'obs_candidates': self.get_obs_candidate(landmark, obs_raw)
             }
             landmarks_candidate.append(candidate)
         # print landmarks_candidate for debug
@@ -341,7 +372,8 @@ class LidarLocalization(Node): # inherit from Node
                 ]
                 # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
                 self.lidar_pose_pub.publish(self.lidar_pose_msg)
-                # self.get_logger().debug("Published lidar_pose message")
+                if self.debug_mode:
+                    print(f"lidar_pose: {lidar_pose}")
 
             except np.linalg.LinAlgError as e:
                 self.get_logger().warn("Linear algebra error: {}".format(e))
