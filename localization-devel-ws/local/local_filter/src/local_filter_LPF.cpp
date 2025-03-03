@@ -113,7 +113,7 @@ public:
         robotstate_.mu = A * robotstate_.mu + B * d_state;
     }
 
-    void setposeCallback(const geometry_msgs::msg::PoseWithCovarianceStamped & pose_msg)
+    void setposeCallback(const geometry_msgs::msg::PoseWithCovariance & pose_msg)
     {
         double x = pose_msg.pose.position.x;
         double y = pose_msg.pose.position.y;
