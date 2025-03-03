@@ -242,7 +242,7 @@ private:
     std::shared_ptr<rclcpp::Node> nh_local_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr odom_sub_;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
-    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr setpose_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovariance>::SharedPtr setpose_sub_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr global_filter_pub_;
     rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr odom2map_pub_;
 
