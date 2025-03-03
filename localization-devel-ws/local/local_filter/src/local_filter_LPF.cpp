@@ -66,7 +66,7 @@ public:
             cov_multi_[i]=nh_local_->get_parameter("covariance_multi_"+str).as_double();
         }
 
-        setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("initial_pose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
+        setpose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovariance>("initial_pose", 50, std::bind(&GlobalFilterNode::setposeCallback, this, std::placeholders::_1));
         odom_sub_ = nh_->create_subscription<geometry_msgs::msg::Twist>("odoo_googoogoo", 10, std::bind(&GlobalFilterNode::odomCallback, this, std::placeholders::_1));
         imu_sub_ = nh_->create_subscription<sensor_msgs::msg::Imu>("imu/data_cov", 10, std::bind(&GlobalFilterNode::imuCallback, this, std::placeholders::_1));
 
@@ -115,18 +115,22 @@ public:
 
     void setposeCallback(const geometry_msgs::msg::PoseWithCovarianceStamped & pose_msg)
     {
-        double x = pose_msg.pose.pose.position.x;
-        double y = pose_msg.pose.pose.position.y;
+        double x = pose_msg.pose.position.x;
+        double y = pose_msg.pose.position.y;
         
         init_pose.position.x=x;
         init_pose.position.y=y;
-        init_pose.orientation.x=pose_msg.pose.pose.orientation.x;
-        init_pose.orientation.y=pose_msg.pose.pose.orientation.y;
-        init_pose.orientation.z=pose_msg.pose.pose.orientation.z;
-        init_pose.orientation.w=pose_msg.pose.pose.orientation.w;
+        init_pose.orientation.x=pose_msg.pose.orientation.x;
+        init_pose.orientation.y=pose_msg.pose.orientation.y;
+        init_pose.orientation.z=pose_msg.pose.orientation.z;
+        init_pose.orientation.w=pose_msg.pose.orientation.w;
+        
+        rclcpp::Clock clock;
+        rclcpp::Time now=clock.now();
+        prev_stamp_=now;
 
         tf2::Quaternion q;
-        tf2::fromMsg(pose_msg.pose.pose.orientation, q);
+        tf2::fromMsg(pose_msg.pose.orientation, q);
         tf2::Matrix3x3 qt(q);
         double _, yaw;
         qt.getRPY(_, _, yaw);
