@@ -139,15 +139,15 @@ public:
         robotstate_.mu(1) = y;
         robotstate_.mu(2) = yaw;
 
-        robotstate_.sigma(0, 0) = pose_msg.pose.covariance[0];   // x-x
-        robotstate_.sigma(0, 1) = pose_msg.pose.covariance[1];   // x-y
-        robotstate_.sigma(0, 2) = pose_msg.pose.covariance[5];   // x-theta
-        robotstate_.sigma(1, 0) = pose_msg.pose.covariance[6];   // y-x
-        robotstate_.sigma(1, 1) = pose_msg.pose.covariance[7];   // y-y
-        robotstate_.sigma(1, 2) = pose_msg.pose.covariance[11];  // y-theta
-        robotstate_.sigma(2, 0) = pose_msg.pose.covariance[30];  // theta-x
-        robotstate_.sigma(2, 1) = pose_msg.pose.covariance[31];  // theta-y
-        robotstate_.sigma(2, 2) = pose_msg.pose.covariance[35];  // theta-theta
+        robotstate_.sigma(0, 0) = pose_msg.covariance[0];   // x-x
+        robotstate_.sigma(0, 1) = pose_msg.covariance[1];   // x-y
+        robotstate_.sigma(0, 2) = pose_msg.covariance[5];   // x-theta
+        robotstate_.sigma(1, 0) = pose_msg.covariance[6];   // y-x
+        robotstate_.sigma(1, 1) = pose_msg.covariance[7];   // y-y
+        robotstate_.sigma(1, 2) = pose_msg.covariance[11];  // y-theta
+        robotstate_.sigma(2, 0) = pose_msg.covariance[30];  // theta-x
+        robotstate_.sigma(2, 1) = pose_msg.covariance[31];  // theta-y
+        robotstate_.sigma(2, 2) = pose_msg.covariance[35];  // theta-theta
     }
 
     void odomCallback(const geometry_msgs::msg::Twist & odom_msg) {
