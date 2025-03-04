@@ -175,15 +175,15 @@ public:
         prev_stamp_=now;
 
         // publish absolute coordinate
-        coord_odom2map.position.x=init_pose.position.x+odom_msg.angular.x;
-        coord_odom2map.position.y=init_pose.position.y+odom_msg.angular.y;
+        coord_odom2map.position.x=robotstate_.mu[0];
+        coord_odom2map.position.y=robotstate_.mu[1];
 
         tf2::Quaternion q;
         tf2::fromMsg(init_pose.orientation, q);
         tf2::Matrix3x3 qt(q);
         double _, yaw;
-        qt.getRPY(_, _, yaw);
-        q.setRPY(0, 0, yaw+odom_msg.linear.z);
+        qt.getRPY(_, _, robotstate_.mu[2]);
+        q.setRPY(0, 0, robotstate_.mu[2]);
         coord_odom2map.orientation.x=q.getX();
         coord_odom2map.orientation.y=q.getY();
         coord_odom2map.orientation.z=q.getZ();
