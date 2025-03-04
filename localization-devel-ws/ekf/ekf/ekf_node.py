@@ -50,6 +50,8 @@ class EKFFootprintBroadcaster(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.final_pose = PoseWithCovarianceStamped()
         self.final_pose.header.frame_id = self.parent_frame_id
+        self.cam_measurement = [-100, -100, -100]
+        self.cam_time = 0
 
         self.X = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State vector: x, y, theta, vx, vy, w
         self.P = np.eye(6) * 9 * 1e-4
@@ -76,7 +78,7 @@ class EKFFootprintBroadcaster(Node):
         self.init_topics()
 
         self.footprint_publish()
-        self.create_timer(1.0 / self.rate, self.camera_callback)
+        self.create_timer(1.0 / self.rate, self.camera_update)
         
         
     def claim_parameters(self):
@@ -145,12 +147,7 @@ class EKFFootprintBroadcaster(Node):
 
 
     def camera_callback(self, msg):
-        cam_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-        current_time = self.get_clock().now().nanoseconds / 1e9
-        if abs(current_time - cam_time) > 1.5:  # GPS data too old
-            # self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
-            return
-
+        self.cam_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         if is_invalid_data(msg.pose.position.x, msg.pose.position.y):
             # self.get_logger().info("Invalid GPS data received")
             return
@@ -161,8 +158,7 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.orientation.z,
             msg.pose.orientation.w
         )
-        cam_measurement = np.array([msg.pose.position.x, msg.pose.position.y, theta])
-        self.ekf_update(cam_measurement, self.R_camera)
+        self.cam_measurement = np.array([msg.pose.position.x, msg.pose.position.y, theta])
                     # now = self.get_clock().now().nanoseconds / 1e9
                     # # self.get_logger().info(f"Camera callback triggered at: {now}")
                     # try:
@@ -181,7 +177,17 @@ class EKFFootprintBroadcaster(Node):
                     # except TransformException as ex:
                     #     self.get_logger().warn(f"TransformException in camera_callback: {ex}")
 
+    def camera_update(self):
+        current_time = self.get_clock().now().nanoseconds / 1e9
+        if abs(current_time - self.cam_time) > 1.5:  # GPS data too old
+            # self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
+            self.cam_measurement = [-100, -100, -100]
+            return
+        if self.cam_measurement[0]==-100:  # Check if the measurement is valid
+            self.get_logger().warn("Invalid cam measurement data received.")
+            return
 
+        self.ekf_update(self.cam_measurement, self.R_camera)
 
     # def odom_callback(self, msg):
     #     current_time = self.get_clock().now().nanoseconds / 1e9
