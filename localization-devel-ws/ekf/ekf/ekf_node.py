@@ -31,7 +31,7 @@ def euler_from_quaternion(x, y, z, w):
     pitch = math.asin(t2)
 
     t3, t4 = +2.0 * (w * z + x * y), +1.0 - 2.0 * (y * y + z * z)
-    yaw = math.atan2(t3, t4)
+    yaw = math.atan2(t3, t4) 
     return yaw
 
 def normalize_angle(angle):
@@ -52,6 +52,7 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
         self.cam_time = 0
+        self.gps_time = 0
 
         self.X = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State vector: x, y, theta, vx, vy, w
         self.P = np.eye(6) * 9 * 1e-4
@@ -72,7 +73,7 @@ class EKFFootprintBroadcaster(Node):
 
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
-        self.R_camera[2, 2] = 3
+        self.R_camera[2, 2] = 0.15
 
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
         self.init_topics()
@@ -122,9 +123,9 @@ class EKFFootprintBroadcaster(Node):
 
 
     def gps_callback(self, msg):
-        gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        self.gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         current_time = self.get_clock().now().nanoseconds / 1e9
-        if abs(current_time - gps_time) > 1.5:  # GPS data too old
+        if abs(current_time - self.gps_time) > 1.5:  # GPS data too old
             # self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
             return
 
@@ -139,12 +140,10 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.pose.orientation.w
         )
         gps_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, theta])
-
-        self.R_gps[0, 0] = msg.pose.covariance[0]
+        self.R_gps[0, 0] = msg.pose.covariance[0]    
         self.R_gps[1, 1] = msg.pose.covariance[7]
         self.R_gps[2, 2] = msg.pose.covariance[35]
         self.ekf_update(gps_measurement, self.R_gps)
-
 
     def camera_callback(self, msg):
         self.cam_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
@@ -179,15 +178,22 @@ class EKFFootprintBroadcaster(Node):
 
     def camera_update(self):
         current_time = self.get_clock().now().nanoseconds / 1e9
-        if abs(current_time - self.cam_time) > 1.5:  # GPS data too old
-            # self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
+        if abs(current_time - self.cam_time) > 1.5:  
             self.cam_measurement = [-100, -100, -100]
             return
         if self.cam_measurement[0]==-100:  # Check if the measurement is valid
             self.get_logger().warn("Invalid cam measurement data received.")
             return
-
+        null_time = abs(current_time - self.gps_time)
+        if null_time > 0.2:
+            # self.R_camera[2,2] = 0.15 - null_time / 200 
+            # if self.R_camera[2,2] < 0.001:
+            self.R_camera[2,2] = 1e-10
+            # self.get_logger().warn("camera updated ***********.")
         self.ekf_update(self.cam_measurement, self.R_camera)
+        self.R_camera[0,0] = 1e-2
+        self.R_camera[1,1] = 1e-2
+        self.R_camera[2,2] = 0.15
 
     # def odom_callback(self, msg):
     #     current_time = self.get_clock().now().nanoseconds / 1e9
