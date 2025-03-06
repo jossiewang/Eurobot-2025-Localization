@@ -38,7 +38,7 @@ services:
       # Shared Memory
       - /dev/shm:/dev/shm
     environment:
-      - ROS_DOMAIN_ID=25
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       # - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp=value
 
   ros1:
@@ -83,7 +83,7 @@ services:
       # - https://docs.ros.org/en/humble/Concepts/Intermediate/About-Domain-ID.html
       # - https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html
       # - ROS_LOCALHOST_ONLY=1
-      - ROS_DOMAIN_ID=25
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - ROS_WS=/home/user/localization-ws
     volumes:
@@ -101,9 +101,6 @@ services:
       # Mount workspace
       - ../../../../localization-devel-ws:/home/user/localization-ws/src/localization-devel-ws
     command: /bin/bash -c "
-        cd /home/user/localization-ws/src/localization-devel-ws &&
-        sudo chmod +x usb.sh &&
-        ./usb.sh &&
         source /opt/ros/humble/setup.bash && 
         source /home/user/localization-ws/install/setup.bash &&
         ros2 launch /home/user/localization-ws/src/localization-devel-ws/ekf/launch/yellow.launch"

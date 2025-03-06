@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import math
-from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, Twist, PoseWithCovariance
+from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped, PoseWithCovariance
 from nav_msgs.msg import Odometry
 import numpy as np
 
@@ -50,6 +50,8 @@ class EKFFootprintBroadcaster(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.final_pose = PoseWithCovarianceStamped()
         self.final_pose.header.frame_id = self.parent_frame_id
+        self.cam_measurement = [-100, -100, -100]
+        self.cam_time = 0
 
         self.X = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State vector: x, y, theta, vx, vy, w
         self.P = np.eye(6) * 9 * 1e-4
@@ -70,33 +72,36 @@ class EKFFootprintBroadcaster(Node):
 
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
-        self.R_camera[2, 2] = 9
+        self.R_camera[2, 2] = 3
 
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
-        self.init_subscribers()
-        self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 10)
-        # self.create_timer(1.0 / self.rate, self.footprint_publish)
-        # self.create_timer(1, self.camera_callback)
-        
-        self.footprint_publish()
+        self.init_topics()
 
+        self.footprint_publish()
+        self.create_timer(1.0 / self.rate, self.camera_update)
+        
         
     def claim_parameters(self):
         self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('robot_frame_id', 'base_footprint')
-        self.declare_parameter('camera_frame_id', 'aruco_marker_frame')
-        self.declare_parameter('camera_parent_id', 'map')
+        self.declare_parameter('update_rate', 1)
 
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
         self.child_frame_id = self.get_parameter('robot_frame_id').value
-        self.camera_frame_id = self.get_parameter('camera_frame_id').value
-        self.camera_parent_id = self.get_parameter('camera_parent_id').value
-        # self.rate = self.get_parameter('update_rate').value
+        self.rate = self.get_parameter('update_rate').value
 
-    def init_subscribers(self):
-        self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 10)
-        self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,10)
-        self.create_subscription(Odometry, 'local_filter', self.local_callback, 10)
+        # self.declare_parameter('camera_frame_id', 'aruco_marker_frame')
+        # self.declare_parameter('camera_parent_id', 'map')
+        # self.camera_frame_id = self.get_parameter('camera_frame_id').value
+        # self.camera_parent_id = self.get_parameter('camera_parent_id').value    
+
+    def init_topics(self):
+        self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
+        self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,1)
+        self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
+        self.create_subscription(PoseStamped, '/ceiling_robot/pose', self.camera_callback, 1)
+        self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
+
     
     def init_callback(self, msg):
 
@@ -141,24 +146,48 @@ class EKFFootprintBroadcaster(Node):
         self.ekf_update(gps_measurement, self.R_gps)
 
 
-    def camera_callback(self):
-        now = self.get_clock().now().nanoseconds / 1e9
-        # self.get_logger().info(f"Camera callback triggered at: {now}")
-        try:
-            t = self.tf_buffer.lookup_transform(
-                self.camera_parent_id,
-                self.camera_frame_id, 
-                rclpy.time.Time()      
-            )
-            trans = t.transform.translation
-            rot = t.transform.rotation
-            theta = euler_from_quaternion(rot.x, rot.y, rot.z, rot.w)
+    def camera_callback(self, msg):
+        self.cam_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        if is_invalid_data(msg.pose.position.x, msg.pose.position.y):
+            # self.get_logger().info("Invalid GPS data received")
+            return
 
-            camera_measurement = np.array([trans.x, trans.y, theta])
-            # self.get_logger().info(f"Camera transform: x={trans.x}, y={trans.y}, theta={theta}")
-            self.ekf_update(camera_measurement, self.R_camera)
-        except TransformException as ex:
-            self.get_logger().warn(f"TransformException in camera_callback: {ex}")
+        theta = euler_from_quaternion(
+            msg.pose.orientation.x,
+            msg.pose.orientation.y,
+            msg.pose.orientation.z,
+            msg.pose.orientation.w
+        )
+        self.cam_measurement = np.array([msg.pose.position.x, msg.pose.position.y, theta])
+                    # now = self.get_clock().now().nanoseconds / 1e9
+                    # # self.get_logger().info(f"Camera callback triggered at: {now}")
+                    # try:
+                    #     t = self.tf_buffer.lookup_transform(
+                    #         self.camera_parent_id,
+                    #         self.camera_frame_id, 
+                    #         rclpy.time.Time()      
+                    #     )
+                    #     trans = t.transform.translation
+                    #     rot = t.transform.rotation
+                    #     theta = euler_from_quaternion(rot.x, rot.y, rot.z, rot.w)
+
+                    #     camera_measurement = np.array([trans.x, trans.y, theta])
+                    #     # self.get_logger().info(f"Camera transform: x={trans.x}, y={trans.y}, theta={theta}")
+                    #     self.ekf_update(camera_measurement, self.R_camera)
+                    # except TransformException as ex:
+                    #     self.get_logger().warn(f"TransformException in camera_callback: {ex}")
+
+    def camera_update(self):
+        current_time = self.get_clock().now().nanoseconds / 1e9
+        if abs(current_time - self.cam_time) > 1.5:  # GPS data too old
+            # self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
+            self.cam_measurement = [-100, -100, -100]
+            return
+        if self.cam_measurement[0]==-100:  # Check if the measurement is valid
+            self.get_logger().warn("Invalid cam measurement data received.")
+            return
+
+        self.ekf_update(self.cam_measurement, self.R_camera)
 
     # def odom_callback(self, msg):
     #     current_time = self.get_clock().now().nanoseconds / 1e9
@@ -216,7 +245,7 @@ class EKFFootprintBroadcaster(Node):
         self.X[2] = normalize_angle(self.X[2])
 
         I = np.eye(6)
-        self.P = (I - K @ H) @ self.P @ (I - K @ H).T + K @ R @ K.T
+        self.P = (I - K @ H) @ self.P @ (I - K @ H).T 
 
         # if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
         #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
