@@ -30,7 +30,7 @@ typedef struct rivalState {
 class Rival : public rclcpp::Node {
 
 public:
-
+  
     Rival();
 
 private:
@@ -62,6 +62,7 @@ private:
     rclcpp::Time rival_stamp;
     rclcpp::Clock clock;
 
+
     geometry_msgs::msg::TransformStamped rival_tf;
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> br;
 
@@ -78,3 +79,4 @@ private:
     IMM model;
 };
 #endif
+

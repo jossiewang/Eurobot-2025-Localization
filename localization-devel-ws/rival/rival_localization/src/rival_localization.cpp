@@ -59,6 +59,7 @@ bool Rival::in_playArea_obs(geometry_msgs::msg::Point center) {
 bool Rival::within_lock(geometry_msgs::msg::Point pre, geometry_msgs::msg::Point cur, double dt) {
 
     bool ok = true;
+
     locking_rad = locking_rad + sqrt(pow(rival_final_vel.x, 2) + pow(rival_final_vel.y, 2)) * dt;
     double distance = sqrt(pow((pre.x - cur.x), 2) + pow((pre.y - cur.y), 2));
 
@@ -189,6 +190,7 @@ void Rival::fusion() {
     obstacle_ok = false;
 }
 
+
 void Rival::timerCallback() {
 
     static geometry_msgs::msg::Point rival_pose_pre;
@@ -199,6 +201,7 @@ void Rival::timerCallback() {
     if(rival_ok){
 
         rival_stamp = clock.now();
+
         rival_raw_vel = lpf(vel_lpf_gain, rival_vel_pre, rival_raw_vel);
 
         // 比較是否有 imm filter 的差異
@@ -248,6 +251,7 @@ void Rival::publish_rival_final() {
     // RCLCPP_INFO(this->get_logger(),"velocity:( %f , %f )", rival_final_vel.x, rival_final_vel.y);
     // RCLCPP_INFO(this->get_logger(),"time stamp: %f", rival_stamp.seconds());
     // RCLCPP_INFO(this->get_logger(),"-------------");
+
 }
 
 void Rival::broadcast_rival_tf() {
@@ -261,7 +265,6 @@ void Rival::broadcast_rival_tf() {
         transformStamped.header.stamp = rival_stamp;
         transformStamped.header.frame_id = robot_name + "/map";
         transformStamped.child_frame_id = rival_name + "/base_footprint";
-
         transformStamped.transform.translation.x = rival_final_pose.x;
         transformStamped.transform.translation.y = rival_final_pose.y;
         transformStamped.transform.translation.z = rival_final_pose.z;
