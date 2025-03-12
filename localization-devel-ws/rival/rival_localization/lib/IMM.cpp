@@ -141,6 +141,6 @@ void IMM::updateOnce(const double& stamp, const Eigen::VectorXd* z) {
         estimateFusion();
     }
 
-    std::cout<<"ca: "<<model_prob_[0]<<" ,cv: "<<model_prob_[1]<<" ,t0: "<<model_prob_[2]<<" ,t1: "<<model_prob_[3]<<std::endl;
+    // std::cout<<"ca: "<<model_prob_[0]<<" ,cv: "<<model_prob_[1]<<" ,t0: "<<model_prob_[2]<<" ,t1: "<<model_prob_[3]<<std::endl;
     // std::cout<<"cv: "<<model_prob_[0]<<" ,t0: "<<model_prob_[1]<<" ,t1: "<<model_prob_[2]<<std::endl;
 }
