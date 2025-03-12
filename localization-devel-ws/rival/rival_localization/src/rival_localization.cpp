@@ -218,7 +218,7 @@ void Rival::timerCallback() {
 void Rival::publish_rival_raw() {
 
     rival_output.header.stamp = rival_stamp;
-    rival_output.header.frame_id = robot_name + "/map";
+    rival_output.header.frame_id = "/map";
     rival_output.child_frame_id = rival_name + "/raw_pose";
     rival_output.pose.pose.position = rival_raw_pose;
     rival_output.pose.pose.orientation.w = 1;
@@ -238,7 +238,7 @@ void Rival::publish_rival_final() {
     imm_filter();
 
     rival_output.header.stamp = rival_stamp;
-    rival_output.header.frame_id = robot_name + "/map";
+    rival_output.header.frame_id = "/map";
     rival_output.child_frame_id = rival_name + "/final_pose";
     rival_output.pose.pose.position = rival_final_pose;
     rival_output.pose.pose.orientation.w = 1;
@@ -263,7 +263,7 @@ void Rival::broadcast_rival_tf() {
         geometry_msgs::msg::TransformStamped transformStamped;
 
         transformStamped.header.stamp = rival_stamp;
-        transformStamped.header.frame_id = robot_name + "/map";
+        transformStamped.header.frame_id = "/map";
         transformStamped.child_frame_id = rival_name + "/base_footprint";
         transformStamped.transform.translation.x = rival_final_pose.x;
         transformStamped.transform.translation.y = rival_final_pose.y;

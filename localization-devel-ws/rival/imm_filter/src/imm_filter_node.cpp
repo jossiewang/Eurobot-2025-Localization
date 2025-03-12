@@ -67,7 +67,7 @@ void filter::broadcast_rival_tf() {
         geometry_msgs::msg::TransformStamped transformStamped;
 
         transformStamped.header.stamp = rival_stamp;
-        transformStamped.header.frame_id = robot_name + "/map";
+        transformStamped.header.frame_id = "/map";
         transformStamped.child_frame_id = rival_name + "/base_footprint";
 
         transformStamped.transform.translation.x = sub_px_;
