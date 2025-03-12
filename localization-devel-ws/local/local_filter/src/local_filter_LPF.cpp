@@ -3,7 +3,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
-#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/posestamped.hpp"
 // matrix calulation
 #include <eigen3/Eigen/Dense>
 #include <math.h>
@@ -71,7 +71,7 @@ public:
         imu_sub_ = nh_->create_subscription<sensor_msgs::msg::Imu>("imu/data_cov", 10, std::bind(&GlobalFilterNode::imuCallback, this, std::placeholders::_1));
 
         global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 10);
-        odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::Pose>("odom2map", 10);
+        odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::PoseStamped>("odom2map", 10);
 
     }
 
@@ -175,8 +175,9 @@ public:
         prev_stamp_=now;
 
         // publish absolute coordinate
-        coord_odom2map.position.x=robotstate_.mu[0];
-        coord_odom2map.position.y=robotstate_.mu[1];
+        coord_odom2map.header.stamp=now.to_msg();
+        coord_odom2map.pose.position.x=robotstate_.mu[0];
+        coord_odom2map.pose.position.y=robotstate_.mu[1];
 
         tf2::Quaternion q;
         tf2::fromMsg(init_pose.orientation, q);
@@ -184,10 +185,10 @@ public:
         double _, yaw;
         qt.getRPY(_, _, robotstate_.mu[2]);
         q.setRPY(0, 0, robotstate_.mu[2]);
-        coord_odom2map.orientation.x=q.getX();
-        coord_odom2map.orientation.y=q.getY();
-        coord_odom2map.orientation.z=q.getZ();
-        coord_odom2map.orientation.w=q.getW();
+        coord_odom2map.pose.orientation.x=q.getX();
+        coord_odom2map.pose.orientation.y=q.getY();
+        coord_odom2map.pose.orientation.z=q.getZ();
+        coord_odom2map.pose.orientation.w=q.getW();
         odom2map_pub_->publish(coord_odom2map);
     }
 
@@ -244,7 +245,7 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovariance>::SharedPtr setpose_sub_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr global_filter_pub_;
-    rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr odom2map_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr odom2map_pub_;
 
     //raw
     double twist_x_;
