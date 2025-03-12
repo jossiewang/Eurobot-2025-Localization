@@ -253,7 +253,7 @@ private:
     double cov_backup_[3];
     double cov_multi_[3];
     geometry_msgs::msg::Pose init_pose;
-    geometry_msgs::msg::Pose coord_odom2map;
+    geometry_msgs::msg::PoseStamped coord_odom2map;
     //filtered
     double alpha_x; // filter coefficient
     double alpha_y; // filter coefficient
