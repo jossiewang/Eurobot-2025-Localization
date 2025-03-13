@@ -125,7 +125,7 @@ class LidarLocalization(Node): # inherit from Node
         if len(self.landmarks_set) == 0:
             self.get_logger().debug("empty landmarks set")
             return
-        self.lidar_pose, self.lidar_cov = self.get_lidar_pose(self.landmarks_set, self.landmarks_map)
+        self.get_lidar_pose(self.landmarks_set, self.landmarks_map)
         # clear used data
         self.clear_data()
     
@@ -202,7 +202,7 @@ class LidarLocalization(Node): # inherit from Node
         S = H @ self.P_pred @ H.T + self.R
         S_inv = np.linalg.inv(S)
         S_det = np.linalg.det(S)
-        normalizer = 1 / np.sqrt((2 * np.pi) ** 2 * S_det)
+        # normalizer = 1 / np.sqrt((2 * np.pi) ** 2 * S_det)
 
         marker_id = 0
         marker_array = MarkerArray()
@@ -212,9 +212,9 @@ class LidarLocalization(Node): # inherit from Node
             theta_z = np.arctan2(obs[1], obs[0])
             y = np.array([r_z - r_prime, angle_limit_checking(theta_z - theta_prime)])
             di_square = y.T @ S_inv @ y
-            likelihood = normalizer * np.exp(-0.5 * di_square)
+            likelihood = np.exp(-0.5 * di_square)
             # normalize: max likelihood is for di_square = 0
-            likelihood = likelihood / normalizer
+            # likelihood = likelihood / normalizer
             if likelihood > self.likelihood_threshold:
                 obs_candidates.append({'position': obs, 'probability': likelihood})
                 if self.visualize_candidate and self.beacon_no == 1:
@@ -336,6 +336,8 @@ class LidarLocalization(Node): # inherit from Node
 
             try:
                 X = np.linalg.solve(A.T @ A, A.T @ b)
+                if X[0] < 0 or X[0] > 3 or X[1] < 0 or X[1] > 2:
+                    return
                 lidar_pose[0] = X[0]
                 lidar_pose[1] = X[1]
 
