@@ -17,8 +17,8 @@
         <param name="side" value="$(var side)"/>
         <param name="debug_mode" value="False"/>
         <param name="visualize_candidate" value="False"/>
-        <param name="likelihood_threshold" value="0.05"/>
-        <param name="consistency_threshold" value="0.9"/>
+        <param name="likelihood_threshold" value="0.001"/>
+        <param name="consistency_threshold" value="0.97"/>
     </node>
 
     <node pkg="tf2_ros" exec="static_transform_publisher" name="robot_to_laser" output="screen" args="--x 0 --y 0 --z 0 --roll 0 --pitch 0 --yaw 1.57 --frame-id /base_footprint --child-frame-id /laser" />
@@ -32,18 +32,18 @@
 
 
     <!-- rival localization -->
-
-    <node name="obstacle_detector_to_map" pkg="obstacle_detector" exec="obstacle_extractor_node">
-        <param from="$(find-pkg-share rival_localization)/config/rival_localization.yaml"/>
-        <param name="frame_id" value="map" />
-        <remap from="raw_obstacles" to="obstacles_to_map" />
-    </node>
-
+    <group>
+        <push-ros-namespace namespace="$(var rival_name)" />
+            <node name="obstacle_detector_to_map" pkg="obstacle_detector" exec="obstacle_extractor_node">
+                <param from="/home/user/localization-ws/src/localization-devel-ws/rival/rival_localization/config/rival_localization.yaml"/>
+                <param name="frame_id" value="map"/>
+                <remap from="raw_obstacles" to="/obstacles_to_map" />
+                <remap from="scan" to="/scan" />
+            </node>
+     </group>
     <node pkg="rival_localization" exec="rival_localization" name="rival_localization" output="screen">
-        <param from="$(find-pkg-share rival_localization)/config/rival_localization.yaml"/>
+        <param from="/home/user/localization-ws/src/localization-devel-ws/rival/rival_localization/config/rival_localization.yaml"/>
         <remap from="raw_pose" to="/$(var rival_name)/raw_pose" />
         <remap from="final_pose" to="/$(var rival_name)/final_pose"/>
-        <!-- <remap from="obstacles_to_map" to="/obstacles_to_map"/> -->
     </node>
-
 </launch>

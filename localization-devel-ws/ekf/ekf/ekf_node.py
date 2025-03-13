@@ -60,7 +60,7 @@ class EKFFootprintBroadcaster(Node):
         self.Q = np.eye(3) 
         self.Q[0, 0] = 1e-5 # vx
         self.Q[1, 1] = 1e-5 # vy
-        self.Q[2, 2] = 1e-11 # w
+        self.Q[2, 2] = 1e-8 # w
 
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
