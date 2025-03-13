@@ -1,5 +1,8 @@
 <launch>
     <arg name="rival_name" default="rival"/>
+    <arg name="side" default="0"/> <!-- 0 for yellow; 1 for blue -->
+
+    <!-- EKF -->
 
     <node pkg="ekf" exec="ekf_node" name="ekf_node" output="screen">
         <param name="robot_parent_frame_id" value="map" />
@@ -7,22 +10,26 @@
         <param name="/use_sim_time" value="false" />
     </node>
 
+
+    <!-- lidar localization -->
+
     <node pkg="lidar_localization_pkg" exec="lidar_localization" name="lidar_localization" output="screen">
-        <param name="side" value="0"/>
+        <param name="side" value="$(var side)"/>
         <param name="debug_mode" value="False"/>
         <param name="visualize_candidate" value="False"/>
         <param name="likelihood_threshold" value="0.05"/>
         <param name="consistency_threshold" value="0.9"/>
     </node>
 
-    <!-- 90 degree to base_footprint -->
     <node pkg="tf2_ros" exec="static_transform_publisher" name="robot_to_laser" output="screen" args="--x 0 --y 0 --z 0 --roll 0 --pitch 0 --yaw 1.57 --frame-id /base_footprint --child-frame-id /laser" />
-    <!-- rplidar -->
     <include file="$(find-pkg-share lidar_localization_pkg)/launch/rplidar_s3_launch.py" />
-    <!-- obstacles -->
     <include file="$(find-pkg-share lidar_localization_pkg)/launch/obstacle_extractor_launch.xml" />
 
+
+    <!-- local filter -->
+
     <include file="/home/user/localization-ws/src/localization-devel-ws/local/local_filter/launch/local_filter_whole.xml" />
+
 
     <!-- rival localization -->
 
@@ -38,12 +45,5 @@
         <remap from="final_pose" to="/$(var rival_name)/final_pose"/>
         <!-- <remap from="obstacles_to_map" to="/obstacles_to_map"/> -->
     </node>
-
-    <node name="imm_filter_node" pkg="imm_filter" exec="imm_filter_node" output="screen">
-
-        <remap from="raw_pose" to="rival/raw_pose" />
-        <remap from="final_pose" to="rival/final_pose"/>
-    </node>
-
 
 </launch>
