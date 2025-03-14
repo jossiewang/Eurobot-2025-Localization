@@ -179,12 +179,15 @@ class EKFFootprintBroadcaster(Node):
         s_theta = math.sin(theta)
         c_delta = math.cos(w * dt)
         s_delta = math.sin(w * dt)
+        if abs(w) > 1e-3:
+            self.X[0] += (c_theta*s_delta - s_theta*(c_delta-1))*v_x / w - (s_theta*s_delta - c_theta*(c_delta-1))*v_y / w
+            self.X[1] += (s_theta*s_delta - c_theta*(c_delta-1))*v_x / w + (c_theta*s_delta - s_theta*(c_delta-1))*v_y / w
+        else:
+            self.X[0] += v_x * dt * math.cos(theta + w * dt) - v_y * dt * math.sin(theta + w * dt)
+            self.X[1] += v_x * dt *math.sin(theta + w * dt) + v_y * dt * math.cos(theta + w * dt)
 
-        self.X[0] += (c_theta*s_delta - s_theta*(c_delta-1))*v_x / w - (s_theta*s_delta - c_theta*(c_delta-1))*v_y / w
-        self.X[1] += (s_theta*s_delta - c_theta*(c_delta-1))*v_x / w + (c_theta*s_delta - s_theta*(c_delta-1))*v_y / w
         self.X[2] += w * dt
         self.footprint_publish()
-
         self.P = self.P + self.Q
         if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
             self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
