@@ -200,7 +200,11 @@ class EKFFootprintBroadcaster(Node):
         
         K = self.P @ np.linalg.inv(self.P + R)
         self.P = (np.eye(3) - K) @ self.P
-        self.X = self.X + K @ (z - self.X)
+        # self.X = self.X + K @ (z - self.X) # here we should make sure angle subtraction, not just z - self.X
+        residual = z - self.X
+        if abs(residual[2]) > math.pi:
+            residual[2] = normalize_angle(residual[2])
+        self.X = self.X + K @ residual
 
         if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
             self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
