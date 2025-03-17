@@ -137,9 +137,9 @@ class LidarLocalization(Node): # inherit from Node
             orientation += 2 * np.pi
         self.robot_pose = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, orientation])
         self.P_pred = np.array([
-            [msg.pose.covariance[0], 0, 0],
-            [0, msg.pose.covariance[7], 0],
-            [0, 0, msg.pose.covariance[35]]
+            [msg.pose.covariance[0]*100, 0, 0],
+            [0, msg.pose.covariance[7]*100, 0],
+            [0, 0, msg.pose.covariance[35]*1e6]
         ])
 
     def set_lidar_side_callback(self, msg):
@@ -202,7 +202,6 @@ class LidarLocalization(Node): # inherit from Node
         S = H @ self.P_pred @ H.T + self.R
         S_inv = np.linalg.inv(S)
         S_det = np.linalg.det(S)
-        # normalizer = 1 / np.sqrt((2 * np.pi) ** 2 * S_det)
 
         marker_id = 0
         marker_array = MarkerArray()
@@ -213,8 +212,6 @@ class LidarLocalization(Node): # inherit from Node
             y = np.array([r_z - r_prime, angle_limit_checking(theta_z - theta_prime)])
             di_square = y.T @ S_inv @ y
             likelihood = np.exp(-0.5 * di_square)
-            # normalize: max likelihood is for di_square = 0
-            # likelihood = likelihood / normalizer
             if likelihood > self.likelihood_threshold:
                 obs_candidates.append({'position': obs, 'probability': likelihood})
                 if self.visualize_candidate and self.beacon_no == 1:
