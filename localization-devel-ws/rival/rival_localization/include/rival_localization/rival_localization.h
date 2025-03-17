@@ -13,6 +13,7 @@
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/vector3.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "obstacle_detector/msg/obstacles.hpp"
 #include "rclcpp/clock.hpp"
@@ -36,6 +37,7 @@ public:
 private:
     void initialize();
     void obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr& msg);
+    void cam_callback(const geometry_msgs::msg::PoseStamped::ConstPtr& msg);
     void publish_rival_raw();
     void publish_rival_final();
     void fusion();
@@ -47,6 +49,7 @@ private:
     void imm_filter();
 
     rclcpp::Subscription<obstacle_detector::msg::Obstacles>::SharedPtr obstacles_sub;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr cam_sub;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr rival_raw_pub, rival_final_pub;
     rclcpp::TimerBase::SharedPtr timer_;
 

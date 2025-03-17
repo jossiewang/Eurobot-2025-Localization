@@ -154,10 +154,11 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
             continue;
         }
         
+        double distance_;
         if (dt_cam > 1) { // if camera is unavailable, use the rival's previous pose
-            double distance_ = sqrt(pow((circle.center.x - rival_final_pose.x), 2) + pow((circle.center.y - rival_final_pose.y), 2));
+            distance_ = sqrt(pow((circle.center.x - rival_final_pose.x), 2) + pow((circle.center.y - rival_final_pose.y), 2));
         } else { // if camera is available, find the one closest to the rival
-            double distance_ = sqrt(pow((circle.center.x - cam_rival_pose.x), 2) + pow((circle.center.y - cam_rival_pose.y), 2));
+            distance_ = sqrt(pow((circle.center.x - cam_rival_pose.x), 2) + pow((circle.center.y - cam_rival_pose.y), 2));
             camera_ok = true;
         }
 
@@ -197,7 +198,8 @@ void Rival::fusion() {
     rival_ok = true;
 
     if(obstacle_ok && camera_ok){ // fuse with weight for each sensor
-        rival_raw_pose = obstacle_pose*(1 - cam_weight) + cam_rival_pose * cam_weight;
+        rival_raw_pose.x = obstacle_pose.x * (1 - cam_weight) + cam_rival_pose.x * cam_weight;
+        rival_raw_pose.y = obstacle_pose.y * (1 - cam_weight) + cam_rival_pose.y * cam_weight;
         rival_raw_vel = obstacle_vel;
     }
     else if(obstacle_ok && !camera_ok){
