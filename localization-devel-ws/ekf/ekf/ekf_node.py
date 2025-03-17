@@ -31,7 +31,7 @@ def euler_from_quaternion(x, y, z, w):
     pitch = math.asin(t2)
 
     t3, t4 = +2.0 * (w * z + x * y), +1.0 - 2.0 * (y * y + z * z)
-    yaw = math.atan2(t3, t4)
+    yaw = math.atan2(t3, t4) 
     return yaw
 
 def normalize_angle(angle):
@@ -52,29 +52,23 @@ class EKFFootprintBroadcaster(Node):
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
         self.cam_time = 0
-
-        self.X = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # State vector: x, y, theta, vx, vy, w
-        self.P = np.eye(6) * 9 * 1e-4
+        
+        self.X = np.array([0.0, 0.0, 0.0])  # State vector: x, y, theta
+        self.P = np.eye(3) * 9 * 1e-4
         self.P[2, 2] = 0.003 # theta
-        self.P[3, 3] = 1e-6 # vx
-        self.P[4, 4] = 1e-6 # vy
-        self.P[5, 5] = 1e-6 # w
-
-        self.Q = np.eye(6) * 5 * 1e-11
-        # self.Q[2, 2] = 3 * 1e-5
-        # self.Q[3, 3] = 1e-6
-        # self.Q[4, 4] = 1e-6
-        # self.Q[5, 5] = 1e-6
-
-        self.Q[3, 3] = 1e-5 # vx
-        self.Q[4, 4] = 1e-5 # vy
-        self.Q[5, 5] = 1e-11 # w
+        
+        self.Q = np.eye(3) 
+        self.Q[0, 0] = 1e-5 # vx
+        self.Q[1, 1] = 1e-5 # vy
+        self.Q[2, 2] = 1e-8 # w
 
         self.R_gps = np.eye(3) * 1e-2
         self.R_camera = np.eye(3) * 1e-2
-        self.R_camera[2, 2] = 3
+        self.R_camera[2, 2] = 0.15
 
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
+        self.gps_time = self.get_clock().now().nanoseconds / 1e9
+
         self.init_topics()
 
         self.footprint_publish()
@@ -88,12 +82,7 @@ class EKFFootprintBroadcaster(Node):
 
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
         self.child_frame_id = self.get_parameter('robot_frame_id').value
-        self.rate = self.get_parameter('update_rate').value
-
-        # self.declare_parameter('camera_frame_id', 'aruco_marker_frame')
-        # self.declare_parameter('camera_parent_id', 'map')
-        # self.camera_frame_id = self.get_parameter('camera_frame_id').value
-        # self.camera_parent_id = self.get_parameter('camera_parent_id').value    
+        self.rate = self.get_parameter('update_rate').value 
 
     def init_topics(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
@@ -104,6 +93,9 @@ class EKFFootprintBroadcaster(Node):
 
     
     def init_callback(self, msg):
+        
+        self.X[0] = msg.pose.position.x
+        self.X[1] = msg.pose.position.y
 
         theta = euler_from_quaternion(
             msg.pose.orientation.x,
@@ -112,24 +104,19 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.orientation.w
         )
         self.X[2] = theta
-        if msg.covariance[0] > 0:
-            if msg.covariance[0] < 1:
+        if msg.covariance[0] > 0 and msg.covariance[7] > 0 and msg.covariance[35] > 0:
+            if msg.covariance[0] < 1 and msg.covariance[7] < 1 and msg.covariance[35] < 1:
                 self.P[0, 0] = msg.covariance[0]
                 self.P[1, 1] = msg.covariance[7]
                 self.P[2, 2] = msg.covariance[35]
-        self.X[0] = msg.pose.position.x
-        self.X[1] = msg.pose.position.y
-
 
     def gps_callback(self, msg):
-        gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        self.gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         current_time = self.get_clock().now().nanoseconds / 1e9
-        if abs(current_time - gps_time) > 1.5:  # GPS data too old
-            # self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
+        if abs(current_time - self.gps_time) > 1.5:
             return
 
         if is_invalid_data(msg.pose.pose.position.x, msg.pose.pose.position.y):
-            # self.get_logger().info("Invalid GPS data received")
             return
 
         theta = euler_from_quaternion(
@@ -138,18 +125,16 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.pose.orientation.z,
             msg.pose.pose.orientation.w
         )
-        gps_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, theta])
 
-        self.R_gps[0, 0] = msg.pose.covariance[0]
+        gps_measurement = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, theta])
+        self.R_gps[0, 0] = msg.pose.covariance[0]    
         self.R_gps[1, 1] = msg.pose.covariance[7]
         self.R_gps[2, 2] = msg.pose.covariance[35]
         self.ekf_update(gps_measurement, self.R_gps)
 
-
     def camera_callback(self, msg):
         self.cam_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         if is_invalid_data(msg.pose.position.x, msg.pose.position.y):
-            # self.get_logger().info("Invalid GPS data received")
             return
 
         theta = euler_from_quaternion(
@@ -159,46 +144,23 @@ class EKFFootprintBroadcaster(Node):
             msg.pose.orientation.w
         )
         self.cam_measurement = np.array([msg.pose.position.x, msg.pose.position.y, theta])
-                    # now = self.get_clock().now().nanoseconds / 1e9
-                    # # self.get_logger().info(f"Camera callback triggered at: {now}")
-                    # try:
-                    #     t = self.tf_buffer.lookup_transform(
-                    #         self.camera_parent_id,
-                    #         self.camera_frame_id, 
-                    #         rclpy.time.Time()      
-                    #     )
-                    #     trans = t.transform.translation
-                    #     rot = t.transform.rotation
-                    #     theta = euler_from_quaternion(rot.x, rot.y, rot.z, rot.w)
-
-                    #     camera_measurement = np.array([trans.x, trans.y, theta])
-                    #     # self.get_logger().info(f"Camera transform: x={trans.x}, y={trans.y}, theta={theta}")
-                    #     self.ekf_update(camera_measurement, self.R_camera)
-                    # except TransformException as ex:
-                    #     self.get_logger().warn(f"TransformException in camera_callback: {ex}")
 
     def camera_update(self):
         current_time = self.get_clock().now().nanoseconds / 1e9
-        if abs(current_time - self.cam_time) > 1.5:  # GPS data too old
-            # self.get_logger().info(f"Current time: {current_time}, GPS time: {gps_time}")
+        if abs(current_time - self.cam_time) > 1.5:  
             self.cam_measurement = [-100, -100, -100]
             return
         if self.cam_measurement[0]==-100:  # Check if the measurement is valid
             self.get_logger().warn("Invalid cam measurement data received.")
             return
-
+        null_time = abs(current_time - self.gps_time)
+        if null_time > 0.2:
+            self.R_camera[2,2] = 1e-10
+           
         self.ekf_update(self.cam_measurement, self.R_camera)
-
-    # def odom_callback(self, msg):
-    #     current_time = self.get_clock().now().nanoseconds / 1e9
-    #     dt = current_time - self.last_odom_time
-    #     self.last_odom_time = current_time
-
-    #     v_x = msg.linear.x
-    #     v_y = msg.linear.y
-    #     w = msg.angular.z 
-    #     # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
-    #     self.ekf_predict(v_x, v_y, w, dt) 
+        self.R_camera[0,0] = 1e-2
+        self.R_camera[1,1] = 1e-2
+        self.R_camera[2,2] = 0.15
 
     def local_callback(self, msg):
         current_time = self.get_clock().now().nanoseconds / 1e9
@@ -213,43 +175,41 @@ class EKFFootprintBroadcaster(Node):
 
     def ekf_predict(self, v_x, v_y, w, dt):
         theta = self.X[2]
-        F = np.eye(6)
-        F[0, 3] = dt * math.cos(theta)
-        F[0, 4] = - dt * math.sin(theta)
-        F[1, 3] = dt * math.sin(theta)
-        F[1, 4] = dt * math.cos(theta)
-        F[2, 5] = dt
+        c_theta = math.cos(theta)
+        s_theta = math.sin(theta)
+        c_delta = math.cos(w * dt)
+        s_delta = math.sin(w * dt)
+        if abs(w) > 1e-3:
+            self.X[0] += (c_theta*s_delta - s_theta*(c_delta-1))*v_x / w - (s_theta*s_delta - c_theta*(c_delta-1))*v_y / w
+            self.X[1] += (s_theta*s_delta - c_theta*(c_delta-1))*v_x / w + (c_theta*s_delta - s_theta*(c_delta-1))*v_y / w
+        else:
+            self.X[0] += v_x * dt * math.cos(theta + w * dt) - v_y * dt * math.sin(theta + w * dt)
+            self.X[1] += v_x * dt *math.sin(theta + w * dt) + v_y * dt * math.cos(theta + w * dt)
 
-        self.X[0] += v_x * dt * math.cos(theta) - v_y * dt * math.sin(theta)
-        self.X[1] += v_x * dt * math.sin(theta) + v_y * dt  * math.cos(theta)
         self.X[2] += w * dt
-        self.X[2] = normalize_angle(self.X[2])
-       
-        self.P = F @ self.P @ F.T + self.Q
-     
         self.footprint_publish()
+        self.P = self.P + self.Q
+        # if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
+        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
+        #     self.P = np.eye(3) * 1e-3
 
     def ekf_update(self, z, R):
         if np.any(np.isnan(z)):  # Check if the measurement is valid
             self.get_logger().warn("Invalid measurement data received.")
             return
         
-        H = np.zeros((3, 6))
-        H[0, 0] = 1  
-        H[1, 1] = 1 
-        H[2, 2] = 1
-        S = H @ self.P @ H.T + R
-        K = self.P @ H.T @ np.linalg.inv(S)
+        K = self.P @ np.linalg.inv(self.P + R)
+        self.P = (np.eye(3) - K) @ self.P
+        # self.X = self.X + K @ (z - self.X) # here we should make sure angle subtraction, not just z - self.X
+        residual = z - self.X
+        if abs(residual[2]) > math.pi:
+            residual[2] = normalize_angle(residual[2])
+        self.X = self.X + K @ residual
 
-        self.X += K @ (z - H @ self.X)
-        self.X[2] = normalize_angle(self.X[2])
-
-        I = np.eye(6)
-        self.P = (I - K @ H) @ self.P @ (I - K @ H).T 
-
-        # if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
+        # if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) : # TODO: position and theta should be checked seperately
         #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
         #     self.P = np.eye(3) * 1e-2
+        #     self.P[2, 2] = 1e-4
             
     def footprint_publish(self):
         t = TransformStamped()
