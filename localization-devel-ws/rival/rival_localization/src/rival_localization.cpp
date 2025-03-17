@@ -21,7 +21,8 @@ void Rival::initialize() {
     this->declare_parameter<double>("vel_lpf_gain", 0.9);
     this->declare_parameter<double>("locking_rad", 0.3);
     this->declare_parameter<double>("lockrad_growing_rate", 0.3);
-
+    this->declare_parameter<double>("cam_weight", 0.5);
+    
     robot_name           = this->get_parameter("robot_name").get_value<std::string>();
     rival_name           = this->get_parameter("rival_name").as_string();
     freq                 = this->get_parameter("frequency").as_double();
@@ -32,6 +33,7 @@ void Rival::initialize() {
     vel_lpf_gain         = this->get_parameter("vel_lpf_gain").as_double();
     p_locking_rad        = this->get_parameter("locking_rad").as_double(); // but what if rival is moving?? should increase if rival's moving!
     lockrad_growing_rate = this->get_parameter("lockrad_growing_rate").as_double(); // 5e-2 meter per second
+    cam_weight           = this->get_parameter("cam_weight").as_double();
     
     RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
 
@@ -151,9 +153,13 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
             first = true;
             continue;
         }
-
-        if (dt_cam < 1 ) double distance_ = sqrt(pow((circle.center.x - rival_final_pose.x), 2) + pow((circle.center.y, rival_final_pose.y), 2));
-        else double distance_ = sqrt(pow((circle.center.x - cam_rival_pose.x), 2) + pow((circle.center.y, cam_rival_pose.y), 2));
+        
+        if (dt_cam > 1) { // if camera is unavailable, use the rival's previous pose
+            double distance_ = sqrt(pow((circle.center.x - rival_final_pose.x), 2) + pow((circle.center.y - rival_final_pose.y), 2));
+        } else { // if camera is available, find the one closest to the rival
+            double distance_ = sqrt(pow((circle.center.x - cam_rival_pose.x), 2) + pow((circle.center.y - cam_rival_pose.y), 2));
+            camera_ok = true;
+        }
 
         obstacle_ok = true;
 
@@ -190,15 +196,25 @@ void Rival::fusion() {
 
     rival_ok = true;
 
-    if(obstacle_ok){
+    if(obstacle_ok && camera_ok){ // fuse with weight for each sensor
+        rival_raw_pose = obstacle_pose*(1 - cam_weight) + cam_rival_pose * cam_weight;
+        rival_raw_vel = obstacle_vel;
+    }
+    else if(obstacle_ok && !camera_ok){
         rival_raw_pose = obstacle_pose;
         rival_raw_vel = obstacle_vel;
+    }
+    else if(!obstacle_ok && camera_ok){
+        rival_raw_pose = cam_rival_pose;
+        rival_raw_vel.x = 0;
+        rival_raw_vel.y = 0; // TODO: how to get rival's velocity from camera? is it stable?
     }
     else
         rival_ok = false;
     
     // RCLCPP_INFO(this->get_logger(),"obstacle_ok: %d", obstacle_ok);
     obstacle_ok = false;
+    camera_ok = false;
 }
 
 

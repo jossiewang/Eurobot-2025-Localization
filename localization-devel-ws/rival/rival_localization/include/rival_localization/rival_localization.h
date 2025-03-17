@@ -75,8 +75,9 @@ private:
     double vel_lpf_gain;
     double locking_rad, p_locking_rad, freq;
     double lockrad_growing_rate;
+    double cam_weight;
 
-    bool obstacle_ok, rival_ok , initial;
+    bool obstacle_ok, rival_ok , initial, camera_ok;
 
     IMM model;
 };
