@@ -189,9 +189,9 @@ class EKFFootprintBroadcaster(Node):
         self.X[2] += w * dt
         self.footprint_publish()
         self.P = self.P + self.Q
-        if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
-            self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
-            self.P = np.eye(3) * 1e-3
+        # if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
+        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
+        #     self.P = np.eye(3) * 1e-3
 
     def ekf_update(self, z, R):
         if np.any(np.isnan(z)):  # Check if the measurement is valid
@@ -206,9 +206,10 @@ class EKFFootprintBroadcaster(Node):
             residual[2] = normalize_angle(residual[2])
         self.X = self.X + K @ residual
 
-        if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) :
-            self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
-            self.P = np.eye(3) * 1e-2
+        # if (self.P[0, 0] > 1) | (self.P[1, 1] > 1 ) | (self.P[2, 2] > 1) : # TODO: position and theta should be checked seperately
+        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
+        #     self.P = np.eye(3) * 1e-2
+        #     self.P[2, 2] = 1e-4
             
     def footprint_publish(self):
         t = TransformStamped()
