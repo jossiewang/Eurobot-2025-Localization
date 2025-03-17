@@ -11,16 +11,16 @@ Rival::Rival() : Node("rival_localization"){
 
 void Rival::initialize() {
 
-    this->declare_parameter<std::string>("robot_name", "default");
-    this->declare_parameter<std::string>("rival_name", "default");
-    this->declare_parameter<double>("frequency", 0.);
-    this->declare_parameter<double>("x_max", 0.);
+    this->declare_parameter<std::string>("robot_name", "robot");
+    this->declare_parameter<std::string>("rival_name", "rival");
+    this->declare_parameter<double>("frequency", 10.);
+    this->declare_parameter<double>("x_max", 3.);
     this->declare_parameter<double>("x_min", 0.);
-    this->declare_parameter<double>("y_max", 0.);
+    this->declare_parameter<double>("y_max", 2.);
     this->declare_parameter<double>("y_min", 0.);
-    this->declare_parameter<double>("vel_lpf_gain", 0.);
-    this->declare_parameter<double>("locking_rad", 0.);
-    this->declare_parameter<double>("lockrad_growing_rate", 0.);
+    this->declare_parameter<double>("vel_lpf_gain", 0.9);
+    this->declare_parameter<double>("locking_rad", 0.3);
+    this->declare_parameter<double>("lockrad_growing_rate", 0.3);
 
     robot_name           = this->get_parameter("robot_name").get_value<std::string>();
     rival_name           = this->get_parameter("rival_name").as_string();
@@ -36,7 +36,7 @@ void Rival::initialize() {
     RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
 
     obstacles_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("obstacles_to_map", 10, std::bind(&Rival::obstacles_callback, this, _1));
-    cam_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/ceiling_robot/pose", 10, std::bind(&Rival::cam_callback, this, _1));
+    cam_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/ceiling_rival/pose", 10, std::bind(&Rival::cam_callback, this, _1));
     rival_raw_pub = this->create_publisher<nav_msgs::msg::Odometry>("raw_pose", 10);
     rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("final_pose", 10);
 
