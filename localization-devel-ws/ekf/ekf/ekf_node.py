@@ -55,10 +55,10 @@ class EKFFootprintBroadcaster(Node):
         
         self.X = np.array([0.0, 0.0, 0.0])  # State vector: x, y, theta
         self.P = np.eye(3) * 9 * 1e-4
-        self.P[2, 2] = 0.003 # theta
-        
+        self.P[2, 2] = 0.003 
         self.Q = np.eye(3) 
         self.R_gps = np.eye(3) * 1e-2
+        self.R_gps[2, 2] = 0.09
         self.R_camera = np.eye(3) * 1e-2
 
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
@@ -76,10 +76,10 @@ class EKFFootprintBroadcaster(Node):
         self.declare_parameter('update_rate', 1)
         self.declare_parameter('q_linear', 1e-3)
         self.declare_parameter('q_angular', 1e-2)
-        self.declare_parameter('r_gps_angular', 1e-5)
         self.declare_parameter('r_camera_linear', 1e-2)
         self.declare_parameter('r_camera_angular', 0.15)
-        self.declare_parameter('r_gps_angular_threshold', 1e-2)
+        self.declare_parameter('r_threshold_xy', 1e-3)
+        self.declare_parameter('r_threshold_theta', 1e-2)
         self.parent_frame_id = self.get_parameter('robot_parent_frame_id').value
         self.child_frame_id = self.get_parameter('robot_frame_id').value
         self.rate = self.get_parameter('update_rate').value 
@@ -90,10 +90,8 @@ class EKFFootprintBroadcaster(Node):
         self.R_camera[1, 1] = self.get_parameter('r_camera_linear').value
         self.R_camera[2, 2] = self.get_parameter('r_camera_angular').value
         self.R_gps[2, 2] = self.get_parameter('r_gps_angular').value
-
-        self.r_threshold_xy = 1e-3
-        self.r_threshold_theta = 1e-2
-
+        self.r_threshold_xy = self.get_parameter('r_threshold_xy').value
+        self.r_threshold_theta = self.get_parameter('r_threshold_theta').value
     def init_topics(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
         self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,1)
