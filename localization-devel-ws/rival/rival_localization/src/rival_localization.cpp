@@ -36,6 +36,7 @@ void Rival::initialize() {
     RCLCPP_INFO(this->get_logger(),"robot_name: %s, rival_name: %s", robot_name.c_str(), rival_name.c_str());
 
     obstacles_sub = this->create_subscription<obstacle_detector::msg::Obstacles>("obstacles_to_map", 10, std::bind(&Rival::obstacles_callback, this, _1));
+    cam_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/ceiling_robot/pose", 10, std::bind(&Rival::cam_callback, this, _1));
     rival_raw_pub = this->create_publisher<nav_msgs::msg::Odometry>("raw_pose", 10);
     rival_final_pub = this->create_publisher<nav_msgs::msg::Odometry>("final_pose", 10);
 
@@ -117,6 +118,14 @@ void Rival::imm_filter() {
     rival_final_vel.y  = model.x_[3];
 }
 
+void Rival::cam_callback(const geometry_msgs::msg::PoseStamped::ConstPtr& msg) {
+
+    cam_rival_pose.x = msg->pose.position.x;
+    cam_rival_pose.y = msg->pose.position.y;
+    cam_rival_pose.z = msg->pose.position.z;
+    cam_stamp = msg->header.stamp;
+}
+
 void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr& msg) {
 
     static bool first = false;
@@ -126,8 +135,9 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
     static rclcpp::Time Obstacles_stamp_now;
     Obstacles_stamp_now = msg->header.stamp;
     double dt = Obstacles_stamp_now.seconds() - obstacle_stamp_pre.seconds();
+    double dt_cam = Obstacles_stamp_now.seconds() - cam_stamp.seconds();
     double min_distance = 400;
-
+                                                             
     for (const obstacle_detector::msg::CircleObstacle& circle : msg->circles) {
 
         if (!in_playArea_obs(circle.center)) continue;
@@ -142,7 +152,8 @@ void Rival::obstacles_callback(const obstacle_detector::msg::Obstacles::ConstPtr
             continue;
         }
 
-        double distance_ = sqrt(pow((circle.center.x - rival_final_pose.x), 2) + pow((circle.center.y, rival_final_pose.y), 2));
+        if (dt_cam < 1 ) double distance_ = sqrt(pow((circle.center.x - rival_final_pose.x), 2) + pow((circle.center.y, rival_final_pose.y), 2));
+        else double distance_ = sqrt(pow((circle.center.x - cam_rival_pose.x), 2) + pow((circle.center.y, cam_rival_pose.y), 2));
 
         obstacle_ok = true;
 

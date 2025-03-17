@@ -55,11 +55,13 @@ private:
     geometry_msgs::msg::Point obstacle_pose;
     geometry_msgs::msg::Point rival_raw_pose;
     geometry_msgs::msg::Point rival_final_pose;
+    geometry_msgs::msg::Point cam_rival_pose;
     geometry_msgs::msg::Vector3 obstacle_vel;
     geometry_msgs::msg::Vector3 rival_raw_vel;
     geometry_msgs::msg::Vector3 rival_final_vel;
     rclcpp::Time obstacle_stamp;
     rclcpp::Time rival_stamp;
+    rclcpp::Time cam_stamp;
     rclcpp::Clock clock;
 
 
