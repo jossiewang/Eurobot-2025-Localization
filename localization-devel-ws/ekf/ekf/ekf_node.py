@@ -43,15 +43,6 @@ def is_invalid_data(x, y):
 class EKFFootprintBroadcaster(Node):
     def __init__(self):
         super().__init__('ekf')
-        self.claim_parameters()
-
-        self.tf_static_broadcaster = StaticTransformBroadcaster(self)
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
-        self.final_pose = PoseWithCovarianceStamped()
-        self.final_pose.header.frame_id = self.parent_frame_id
-        self.cam_measurement = [-100, -100, -100]
-        self.cam_time = 0
         
         self.X = np.array([0.0, 0.0, 0.0])  # State vector: x, y, theta
         self.P = np.eye(3) * 9 * 1e-4
@@ -63,7 +54,14 @@ class EKFFootprintBroadcaster(Node):
 
         self.last_odom_time = self.get_clock().now().nanoseconds / 1e9
         self.gps_time = self.get_clock().now().nanoseconds / 1e9
-
+        self.claim_parameters()
+        self.tf_static_broadcaster = StaticTransformBroadcaster(self)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.final_pose = PoseWithCovarianceStamped()
+        self.final_pose.header.frame_id = self.parent_frame_id
+        self.cam_measurement = [-100, -100, -100]
+        self.cam_time = 0
         self.init_topics()
 
         self.footprint_publish()
@@ -89,7 +87,7 @@ class EKFFootprintBroadcaster(Node):
         self.R_camera[0, 0] = self.get_parameter('r_camera_linear').value
         self.R_camera[1, 1] = self.get_parameter('r_camera_linear').value
         self.R_camera[2, 2] = self.get_parameter('r_camera_angular').value
-        self.R_gps[2, 2] = self.get_parameter('r_gps_angular').value
+       
         self.r_threshold_xy = self.get_parameter('r_threshold_xy').value
         self.r_threshold_theta = self.get_parameter('r_threshold_theta').value
     def init_topics(self):
@@ -202,10 +200,10 @@ class EKFFootprintBroadcaster(Node):
         self.X[2] += w * dt
         self.footprint_publish()
         self.P = self.P + self.Q
-        if (self.P[0, 0] > 1e-2) | (self.P[1, 1] > 1e-2 ) | (self.P[2, 2] > 0.003) :
-            self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
-            self.P = np.eye(3) * 1e-2
-            self.P[2, 2] = 0.003
+        # if (self.P[0, 0] > 1e-2) | (self.P[1, 1] > 1e-2 ) | (self.P[2, 2] > 0.003) :
+        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
+        #     self.P = np.eye(3) * 1e-2
+        #     self.P[2, 2] = 0.003
 
     def ekf_update(self, z, R):
         if np.any(np.isnan(z)):  # Check if the measurement is valid
@@ -220,10 +218,10 @@ class EKFFootprintBroadcaster(Node):
             residual[2] = normalize_angle(residual[2])
         self.X = self.X + K @ residual
 
-        if (self.P[0, 0] > 1e-2) | (self.P[1, 1] > 1e-2 ) | (self.P[2, 2] > 0.003) : # TODO: position and theta should be checked seperately
-            self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
-            self.P = np.eye(3) * 1e-2
-            self.P[2, 2] = 0.003
+        # if (self.P[0, 0] > 1e-2) | (self.P[1, 1] > 1e-2 ) | (self.P[2, 2] > 0.003) : # TODO: position and theta should be checked seperately
+        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
+        #     self.P = np.eye(3) * 1e-2
+        #     self.P[2, 2] = 0.003
             
     def footprint_publish(self):
         t = TransformStamped()
