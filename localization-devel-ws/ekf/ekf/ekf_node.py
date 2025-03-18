@@ -56,8 +56,9 @@ class EKFFootprintBroadcaster(Node):
         self.gps_time = self.get_clock().now().nanoseconds / 1e9
         self.claim_parameters()
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.t = TransformStamped()
+        self.t.header.frame_id = self.parent_frame_id
+        self.t.child_frame_id = self.child_frame_id
         self.final_pose = PoseWithCovarianceStamped()
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
@@ -224,23 +225,19 @@ class EKFFootprintBroadcaster(Node):
         #     self.P[2, 2] = 0.003
             
     def footprint_publish(self):
-        t = TransformStamped()
-
-        t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = self.parent_frame_id
-        t.child_frame_id = self.child_frame_id
-
-        t.transform.translation.x = self.X[0]
-        t.transform.translation.y = self.X[1]
-        t.transform.translation.z = 0.0
+        self.final_pose.header.stamp = self.get_clock().now().to_msg()
+        self.t.header.stamp = self.get_clock().now().to_msg()
+        self.t.transform.translation.x = self.X[0]
+        self.t.transform.translation.y = self.X[1]
+        self.t.transform.translation.z = 0.0
         quat = quaternion_from_euler(0, 0, self.X[2])
-        t.transform.rotation.x = quat[0]
-        t.transform.rotation.y = quat[1]
-        t.transform.rotation.z = quat[2]
-        t.transform.rotation.w = quat[3]
+        self.t.transform.rotation.x = quat[0]
+        self.t.transform.rotation.y = quat[1]
+        self.t.transform.rotation.z = quat[2]
+        self.t.transform.rotation.w = quat[3]
         self.tf_static_broadcaster.sendTransform(t)
 
-        self.final_pose.header.stamp = self.get_clock().now().to_msg()
+        
         self.final_pose.pose.pose.position.x = self.X[0]
         self.final_pose.pose.pose.position.y = self.X[1]
         self.final_pose.pose.pose.position.z = 0.0
