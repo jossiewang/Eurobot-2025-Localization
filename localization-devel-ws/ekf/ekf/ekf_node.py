@@ -235,7 +235,7 @@ class EKFFootprintBroadcaster(Node):
         self.t.transform.rotation.y = quat[1]
         self.t.transform.rotation.z = quat[2]
         self.t.transform.rotation.w = quat[3]
-        self.tf_static_broadcaster.sendTransform(t)
+        self.tf_static_broadcaster.sendTransform(self.t)
 
         
         self.final_pose.pose.pose.position.x = self.X[0]
