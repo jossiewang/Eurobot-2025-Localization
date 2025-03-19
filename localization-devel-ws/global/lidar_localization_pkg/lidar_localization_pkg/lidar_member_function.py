@@ -385,7 +385,7 @@ class LidarLocalization(Node): # inherit from Node
                 marker_array = MarkerArray()
                 for i, beacon in enumerate(beacons):
                     marker = Marker()
-                    marker.header.frame_id = "map"
+                    marker.header.frame_id = "base_footprint"
                     marker.header.stamp = self.get_clock().now().to_msg()
                     marker.ns = "chosen_landmarks"
                     marker.type = Marker.SPHERE
