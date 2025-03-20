@@ -426,6 +426,14 @@ class LidarLocalization(Node): # inherit from Node
                     expected_distance = self.geometry_description_map[(i, j)]
                     consistency *= 1 - np.abs(geometry_description[(i, j)] - expected_distance) / expected_distance
                 # if the index is not found in map, it is probably on the lower triangle of the matrix
+        
+        # check the landmark sequence is correct, clockwise for yellow, counter-clockwise for blue
+        if self.side == 0:
+            if np.cross(beacons[1] - beacons[0], beacons[2] - beacons[0]) > 0:
+                consistency = 0
+        elif self.side == 1:
+            if np.cross(beacons[1] - beacons[0], beacons[2] - beacons[0]) < 0:
+                consistency = 0
 
         return consistency
     
