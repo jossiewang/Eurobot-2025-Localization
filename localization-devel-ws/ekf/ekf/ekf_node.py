@@ -8,9 +8,6 @@ import rclpy
 from rclpy.node import Node
 
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
-from tf2_ros import TransformException
-from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
 
 def quaternion_from_euler(roll, pitch, yaw):
     roll, pitch, yaw = roll / 2.0, pitch / 2.0, yaw / 2.0
@@ -56,8 +53,9 @@ class EKFFootprintBroadcaster(Node):
         self.gps_time = self.get_clock().now().nanoseconds / 1e9
         self.claim_parameters()
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.t = TransformStamped()
+        self.t.header.frame_id = self.parent_frame_id
+        self.t.child_frame_id = self.child_frame_id
         self.final_pose = PoseWithCovarianceStamped()
         self.final_pose.header.frame_id = self.parent_frame_id
         self.cam_measurement = [-100, -100, -100]
@@ -65,10 +63,12 @@ class EKFFootprintBroadcaster(Node):
         self.init_topics()
 
         self.footprint_publish()
-        self.create_timer(1.0 / self.rate, self.camera_update)
+        if self.use_cam:
+            self.create_timer(1.0 / self.rate, self.camera_update)
         
         
     def claim_parameters(self):
+        self.declare_parameter('use_cam', 0)
         self.declare_parameter('robot_parent_frame_id', 'map')
         self.declare_parameter('robot_frame_id', 'base_footprint')
         self.declare_parameter('update_rate', 1)
@@ -87,7 +87,7 @@ class EKFFootprintBroadcaster(Node):
         self.R_camera[0, 0] = self.get_parameter('r_camera_linear').value
         self.R_camera[1, 1] = self.get_parameter('r_camera_linear').value
         self.R_camera[2, 2] = self.get_parameter('r_camera_angular').value
-       
+        self.use_cam = self.get_parameter('use_cam').value
         self.r_threshold_xy = self.get_parameter('r_threshold_xy').value
         self.r_threshold_theta = self.get_parameter('r_threshold_theta').value
     def init_topics(self):
@@ -224,23 +224,19 @@ class EKFFootprintBroadcaster(Node):
         #     self.P[2, 2] = 0.003
             
     def footprint_publish(self):
-        t = TransformStamped()
-
-        t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = self.parent_frame_id
-        t.child_frame_id = self.child_frame_id
-
-        t.transform.translation.x = self.X[0]
-        t.transform.translation.y = self.X[1]
-        t.transform.translation.z = 0.0
-        quat = quaternion_from_euler(0, 0, self.X[2])
-        t.transform.rotation.x = quat[0]
-        t.transform.rotation.y = quat[1]
-        t.transform.rotation.z = quat[2]
-        t.transform.rotation.w = quat[3]
-        self.tf_static_broadcaster.sendTransform(t)
-
         self.final_pose.header.stamp = self.get_clock().now().to_msg()
+        self.t.header.stamp = self.get_clock().now().to_msg()
+        self.t.transform.translation.x = self.X[0]
+        self.t.transform.translation.y = self.X[1]
+        self.t.transform.translation.z = 0.0
+        quat = quaternion_from_euler(0, 0, self.X[2])
+        self.t.transform.rotation.x = quat[0]
+        self.t.transform.rotation.y = quat[1]
+        self.t.transform.rotation.z = quat[2]
+        self.t.transform.rotation.w = quat[3]
+        self.tf_static_broadcaster.sendTransform(self.t)
+
+        
         self.final_pose.pose.pose.position.x = self.X[0]
         self.final_pose.pose.pose.position.y = self.X[1]
         self.final_pose.pose.pose.position.z = 0.0
