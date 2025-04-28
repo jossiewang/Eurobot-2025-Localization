@@ -3,7 +3,7 @@ from rclpy.node import Node
 
 from tf2_ros import Buffer, TransformListener, LookupException, ConnectivityException, ExtrapolationException
 
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseArray, Pose
 from obstacle_detector.msg import Obstacles
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA, String
@@ -52,6 +52,7 @@ class LidarLocalization(Node): # inherit from Node
 
         # ros settings
         self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
+        self.beacons_pub = self.create_publisher(PoseArray, '/beacons_guaguagua', 10)
         if self.visualize_candidate:
             self.circles_pub = self.create_publisher(MarkerArray, 'candidates', 10)
         self.subscription = self.create_subscription(
@@ -374,6 +375,7 @@ class LidarLocalization(Node): # inherit from Node
                 ]
                 # self.get_logger().debug(f"lidar_pose: {lidar_pose}")
                 self.lidar_pose_pub.publish(self.lidar_pose_msg)
+                self.publish_beacons(beacons)
                 if self.debug_mode:
                     print(f"lidar_pose: {lidar_pose}")
 
@@ -472,6 +474,26 @@ class LidarLocalization(Node): # inherit from Node
             self.get_logger().error(f'Could not transform {self.robot_parent_frame_id} to {self.robot_frame_id}: {e}')
             self.get_logger().error("Could not transform the robot pose")
             return
+        
+    def publish_beacons(self, beacons):
+        pose_array = PoseArray()
+        pose_array.header.stamp = self.get_clock().now().to_msg()
+        pose_array.header.frame_id = "map"  # Adjust the frame_id as needed
+
+        for beacon in beacons:
+            pose = Pose()
+            pose.position.x = beacon[0]
+            pose.position.y = beacon[1]
+            pose.position.z = 0.0
+            pose.orientation.x = 0.0
+            pose.orientation.y = 0.0
+            pose.orientation.z = 0.0
+            pose.orientation.w = 1.0
+            pose_array.poses.append(pose)
+
+        self.beacons_pub.publish(pose_array)
+        self.get_logger().debug("Published beacons to /beacons_guaguagua")
+
 
 def quaternion_from_euler(ai, aj, ak):
     ai /= 2.0
