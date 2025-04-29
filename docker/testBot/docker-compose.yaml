@@ -66,7 +66,7 @@ services:
         source /home/user/localization-ws/install/setup.bash &&
         ros2 launch ${ROS2_LAUNCH_FILE}"
   localization-OdomTF:
-    profiles: ['localization-OdomTF']
+    profiles: ['localization_OdomTF']
     image: jossiewang/eurobot2025-localization2:OdomTF
     container_name: localization-OdomTF
     <<: 
