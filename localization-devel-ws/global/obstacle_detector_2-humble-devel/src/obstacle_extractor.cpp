@@ -233,14 +233,14 @@ Point ObstacleExtractor::distortionCorrection(sensor_msgs::msg::LaserScan scan_m
   Eigen::Matrix2d R_curr;
   R_curr << cos(d_theta), -sin(d_theta), sin(d_theta), cos(d_theta);
 
-  Eigen::Vector2d curr2prev_in_curr_frame;
-  curr2prev_in_curr_frame << (-c*twist[0]*dt), (-c*twist[1]*dt);
+  // Eigen::Vector2d curr2prev_in_curr_frame;
+  // curr2prev_in_curr_frame << (-c*twist[0]*dt), (-c*twist[1]*dt);
 
   Eigen::Vector2d prev2scan_in_prev_frame;
   prev2scan_in_prev_frame << (r*cos(phi)), r*sin(phi);
   
   Eigen::Vector2d curr2scan_in_curr_frame;
-  curr2scan_in_curr_frame = curr2prev_in_curr_frame + R_curr * prev2scan_in_prev_frame;
+  curr2scan_in_curr_frame = /*curr2prev_in_curr_frame +*/ R_curr * prev2scan_in_prev_frame;
 
   return Point(curr2scan_in_curr_frame(0), curr2scan_in_curr_frame(1));
 }
