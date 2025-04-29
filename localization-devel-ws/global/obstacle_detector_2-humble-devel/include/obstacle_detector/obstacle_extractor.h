@@ -57,6 +57,7 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "nav_msgs/msg/odometry.cpp"
 #include "std_srvs/srv/empty.hpp"
+#include "sensor_msgs/msg/point_field.hpp"
 
 #include <eigen3/Eigen/Dense>
 #include "obstacle_detector/msg/obstacles.hpp"
@@ -89,7 +90,8 @@ private:
   void groupPoints();
   void transformObstacles();
   void publishObstacles();
-  void publishVisualizationObstacles();
+  // void publishVisualizationObstacles();
+  void publishPointCloud2Obstacles();
 
   void detectSegments(const PointSet& point_set);
   void mergeSegments();
@@ -109,7 +111,8 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pcl2_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr local_filter_sub;
   rclcpp::Publisher<obstacle_detector::msg::Obstacles>::SharedPtr obstacles_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr obstacles_vis_pub_;
+  // rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr obstacles_vis_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr obstacles_vis_pcl_pub_;
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr params_srv_;
 
   rclcpp::Time stamp_;
@@ -150,6 +153,8 @@ private:
   double p_max_x_limit_;
   double p_min_y_limit_;
   double p_max_y_limit_;
+
+  double p_max_range_ = 3.6;
 
   std::string p_frame_id_;
   std::string published_obstacles_frame_id_ = "";
