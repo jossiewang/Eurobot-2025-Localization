@@ -82,8 +82,7 @@ public:
         global_filter_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("local_filter", 10);
         odom2map_pub_=nh_->create_publisher<geometry_msgs::msg::PoseStamped>("odom2map", 10);
         static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(nh_);
-        static_transform_stamped_.header.frame_id = "map";
-        static_transform_stamped_.child_frame_id = "odom";
+
         
         
     }
@@ -112,8 +111,8 @@ public:
         double theta_ = robotstate_.mu(2); /* <!-- ADD --> */
         double s__theta = sin(theta_);
         double c__theta = cos(theta_);
-        double s__delta = sin(d_state(2));
-        double c__delta = cos(d_state(2));
+        // double s__delta = sin(d_state(2));
+        // double c__delta = cos(d_state(2));
         Eigen::Matrix3d A;
         A << 1, 0, 0, 0, 1, 0, 0, 0, 1;
 
@@ -121,7 +120,7 @@ public:
         // if (abs(w)> 1e-3)
         //     B << (c__theta*s__delta - s__theta*(c__delta -1))/w, -(s__theta*s__delta - c__theta*(c__delta -1))/w, 0, (s__theta*s__delta - c__theta*(c__delta -1))/w, (c__theta*s__delta - s__theta*(c__delta -1))/w, 0, 0, 0, 1;
         // else
-        B << c__theta, -s__theta, 0, s__theta, c__theta, 0, 0, 0, 1;
+            B << c__theta, -s__theta, 0, s__theta, c__theta, 0, 0, 0, 1;
 
         Eigen::Matrix3d cov_past;
         cov_past = robotstate_.sigma;
@@ -144,13 +143,11 @@ public:
         
         rclcpp::Clock clock;
         rclcpp::Time now=clock.now();
-        prev_stamp_=now;
 
         tf2::Quaternion q;
         tf2::fromMsg(pose_msg.pose.pose.orientation, q);
-        tf2::Matrix3x3 qt(q);
-        double _, yaw;
-        qt.getRPY(_, _, yaw);
+        double roll, pitch, yaw;
+        tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
 
         robotstate_.mu(0) = x;
         robotstate_.mu(1) = y;
@@ -165,6 +162,21 @@ public:
         robotstate_.sigma(2, 0) = pose_msg.pose.covariance[30];  // theta-x
         robotstate_.sigma(2, 1) = pose_msg.pose.covariance[31];  // theta-y
         robotstate_.sigma(2, 2) = pose_msg.pose.covariance[35];  // theta-theta
+        RCLCPP_INFO(nh_->get_logger(), "Received initial pose: x = %f, y = %f, theta = %f",  robotstate_.mu(0), robotstate_.mu(1), robotstate_.mu(2));
+        // publish absolute coordinate
+        coord_odom2map.header.stamp= now;
+        coord_odom2map.header.frame_id= "map";
+        coord_odom2map.pose.position.x=robotstate_.mu(0);
+        coord_odom2map.pose.position.y=robotstate_.mu(1);
+
+        tf2::Quaternion q_;
+        q_.setRPY(0, 0, robotstate_.mu(2));
+        coord_odom2map.pose.orientation.x=q_.getX();
+        coord_odom2map.pose.orientation.y=q_.getY();
+        coord_odom2map.pose.orientation.z=q_.getZ();
+        coord_odom2map.pose.orientation.w=q_.getW();
+        odom2map_pub_->publish(coord_odom2map);
+        
     }
 
     void odomCallback(const geometry_msgs::msg::Twist & odom_msg) {
@@ -198,6 +210,8 @@ public:
         // Publish global_filter message
         nav_msgs::msg::Odometry global_filter_msg;
         global_filter_msg.header.stamp = stamp; // imu callback stamp
+        global_filter_msg.header.frame_id = "map";
+        global_filter_msg.child_frame_id = "base_link";
         //velocity
             global_filter_msg.twist.twist.linear.x = linear_x_; //filtered x velocity
             global_filter_msg.twist.twist.linear.y = linear_y_;
@@ -217,7 +231,7 @@ public:
             global_filter_pub_->publish(global_filter_msg);
         // publish absolute coordinate
             coord_odom2map.header.stamp= stamp;
-            coord_odom2map.header.frame_id="map";
+            coord_odom2map.header.frame_id= "map";
             coord_odom2map.pose.position.x=robotstate_.mu(0);
             coord_odom2map.pose.position.y=robotstate_.mu(1);
 
@@ -229,6 +243,8 @@ public:
             coord_odom2map.pose.orientation.w=q_.getW();
             odom2map_pub_->publish(coord_odom2map);
         // publish static transform
+            static_transform_stamped_.header.frame_id = "map";
+            static_transform_stamped_.child_frame_id = "Odom";
             static_transform_stamped_.header.stamp = stamp;
             static_transform_stamped_.transform.translation.x = robotstate_.mu(0);
             static_transform_stamped_.transform.translation.y = robotstate_.mu(1);
