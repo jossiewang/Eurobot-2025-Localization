@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import math
-from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped, PoseWithCovariance
+from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped
 from nav_msgs.msg import Odometry
 import numpy as np
 
@@ -85,7 +85,7 @@ class EKFFootprintBroadcaster(Node):
         self.r_threshold_theta = self.get_parameter('r_threshold_theta').value
     def init_topics(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
-        self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,1)
+        self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback,1)
         self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
         self.create_subscription(PoseStamped, '/ceiling_robot/pose', self.camera_callback, 1)
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
@@ -93,21 +93,21 @@ class EKFFootprintBroadcaster(Node):
     
     def init_callback(self, msg):
         
-        self.X[0] = msg.pose.position.x
-        self.X[1] = msg.pose.position.y
+        self.X[0] = msg.pose.pose.position.x
+        self.X[1] = msg.pose.pose.position.y
 
         theta = euler_from_quaternion(
-            msg.pose.orientation.x,
-            msg.pose.orientation.y,
-            msg.pose.orientation.z,
-            msg.pose.orientation.w
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w
         )
         self.X[2] = theta
-        if msg.covariance[0] > 0 and msg.covariance[7] > 0 and msg.covariance[35] > 0:
-            if msg.covariance[0] < 1 and msg.covariance[7] < 1 and msg.covariance[35] < 1:
-                self.P[0, 0] = msg.covariance[0]
-                self.P[1, 1] = msg.covariance[7]
-                self.P[2, 2] = msg.covariance[35]
+        if msg.pose.covariance[0] > 0 and msg.pose.covariance[7] > 0 and msg.pose.covariance[35] > 0:
+            if msg.pose.covariance[0] < 1 and msg.pose.covariance[7] < 1 and msg.pose.covariance[35] < 1:
+                self.P[0, 0] = msg.pose.covariance[0]
+                self.P[1, 1] = msg.pose.covariance[7]
+                self.P[2, 2] = msg.pose.covariance[35]
 
     def gps_callback(self, msg):
         self.gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
