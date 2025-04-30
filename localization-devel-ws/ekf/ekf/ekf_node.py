@@ -20,13 +20,6 @@ def quaternion_from_euler(roll, pitch, yaw):
             cr * cp * cy + sr * sp * sy]
 
 def euler_from_quaternion(x, y, z, w):
-    t0, t1 = +2.0 * (w * x + y * z), +1.0 - 2.0 * (x * x + y * y)
-    roll = math.atan2(t0, t1)
-
-    t2 = +2.0 * (w * y - z * x)
-    t2 = +1.0 if t2 > +1.0 else -1.0 if t2 < -1.0 else t2
-    pitch = math.asin(t2)
-
     t3, t4 = +2.0 * (w * z + x * y), +1.0 - 2.0 * (y * y + z * z)
     yaw = math.atan2(t3, t4) 
     return yaw
@@ -181,7 +174,6 @@ class EKFFootprintBroadcaster(Node):
         v_x = msg.twist.twist.linear.x
         v_y = msg.twist.twist.linear.y
         w = msg.twist.twist.angular.z
-        # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
         self.ekf_predict(v_x, v_y, w, dt) 
 
     def ekf_predict(self, v_x, v_y, w, dt):
@@ -200,10 +192,6 @@ class EKFFootprintBroadcaster(Node):
         self.X[2] += w * dt
         self.footprint_publish()
         self.P = self.P + self.Q
-        # if (self.P[0, 0] > 1e-2) | (self.P[1, 1] > 1e-2 ) | (self.P[2, 2] > 0.003) :
-        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
-        #     self.P = np.eye(3) * 1e-2
-        #     self.P[2, 2] = 0.003
 
     def ekf_update(self, z, R):
         if np.any(np.isnan(z)):  # Check if the measurement is valid
@@ -212,16 +200,10 @@ class EKFFootprintBroadcaster(Node):
         
         K = self.P @ np.linalg.inv(self.P + R)
         self.P = (np.eye(3) - K) @ self.P
-        # self.X = self.X + K @ (z - self.X) # here we should make sure angle subtraction, not just z - self.X
         residual = z - self.X
         if abs(residual[2]) > math.pi:
             residual[2] = normalize_angle(residual[2])
         self.X = self.X + K @ residual
-
-        # if (self.P[0, 0] > 1e-2) | (self.P[1, 1] > 1e-2 ) | (self.P[2, 2] > 0.003) : # TODO: position and theta should be checked seperately
-        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
-        #     self.P = np.eye(3) * 1e-2
-        #     self.P[2, 2] = 0.003
             
     def footprint_publish(self):
         self.final_pose.header.stamp = self.get_clock().now().to_msg()
