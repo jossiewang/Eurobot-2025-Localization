@@ -27,7 +27,7 @@ class LidarLocalization(Node): # inherit from Node
         # Get parameters
         self.side = self.get_parameter('side').get_parameter_value().integer_value
         self.debug_mode = self.get_parameter('debug_mode').get_parameter_value().bool_value
-        self.visualize_candidate = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
+        self.visualize_true = self.get_parameter('visualize_candidate').get_parameter_value().bool_value
         self.likelihood_threshold = self.get_parameter('likelihood_threshold').get_parameter_value().double_value
         self.consistency_threshold = self.get_parameter('consistency_threshold').get_parameter_value().double_value
         self.robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
@@ -53,8 +53,13 @@ class LidarLocalization(Node): # inherit from Node
         # ros settings
         self.lidar_pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'lidar_pose', 10)
         self.beacons_pub = self.create_publisher(PoseArray, '/beacons_guaguagua', 10)
-        if self.visualize_candidate:
+
+        if self.visualize_true:
+            self.marker_array = MarkerArray()
+            self.marker_num_pre = np.array([0, 0, 0])
+            self.marker_id = 0
             self.circles_pub = self.create_publisher(MarkerArray, 'candidates', 10)
+
         self.subscription = self.create_subscription(
             Obstacles,
             'raw_obstacles',
@@ -66,7 +71,6 @@ class LidarLocalization(Node): # inherit from Node
             self.pred_pose_callback,
             10
         )
-        # subscribe to set_lidar_side topic
         self.subscription = self.create_subscription(
             String,
             'set_lidar_side',
@@ -138,9 +142,9 @@ class LidarLocalization(Node): # inherit from Node
             orientation += 2 * np.pi
         self.robot_pose = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, orientation])
         self.P_pred = np.array([
-            [msg.pose.covariance[0]*100, 0, 0],
-            [0, msg.pose.covariance[7]*100, 0],
-            [0, 0, msg.pose.covariance[35]*1e6]
+            [msg.pose.covariance[0]*50, 0, 0],
+            [0, msg.pose.covariance[7]*50, 0],
+            [0, 0, msg.pose.covariance[35]*1e4]
         ])
 
     def set_lidar_side_callback(self, msg):
@@ -215,45 +219,8 @@ class LidarLocalization(Node): # inherit from Node
             likelihood = np.exp(-0.5 * di_square)
             if likelihood > self.likelihood_threshold:
                 obs_candidates.append({'position': obs, 'probability': likelihood})
-        #         if self.visualize_candidate and self.beacon_no == 1:
-        #             marker = Marker()
-        #             marker.header.frame_id = "robot_predict"
-        #             marker.header.stamp = self.get_clock().now().to_msg()
-        #             marker.ns = "candidates"
-        #             marker.type = Marker.SPHERE
-        #             marker.action = Marker.ADD
-        #             marker.scale.x = 0.1
-        #             marker.scale.y = 0.1
-        #             marker.scale.z = 0.01
-
-        #             text_marker = Marker()
-        #             text_marker.header.frame_id = "robot_predict"
-        #             text_marker.header.stamp = self.get_clock().now().to_msg()
-        #             text_marker.ns = "text"
-        #             text_marker.type = Marker.TEXT_VIEW_FACING
-        #             text_marker.action = Marker.ADD
-        #             text_marker.scale.z = 0.1
-        #             text_marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)  # White text
-
-        #             # use visualization_msgs to visualize the likelihood
-        #             marker.pose.position.x = obs[0]
-        #             marker.pose.position.y = obs[1]
-        #             marker.pose.position.z = 0.0
-        #             marker.color = ColorRGBA(r=0.0, g=0.5, b=1.0, a=likelihood)
-        #             marker_id += 1
-        #             marker.id = marker_id
-        #             marker_array.markers.append(marker)
-        #             text_marker.pose.position.x = obs[0]
-        #             text_marker.pose.position.y = obs[1]
-        #             text_marker.pose.position.z = 0.1
-        #             text_marker.text = f"{likelihood:.2f}"
-        #             text_marker.id = marker_id
-        #             marker_array.markers.append(text_marker)
-        # if self.visualize_candidate and self.beacon_no == 1:
-        #     self.circles_pub.publish(marker_array)
-        #     self.get_logger().debug("Published marker array")
-        #     # clean up
-        #     marker_array.markers.clear()
+                if self.visualize_true:
+                    self.visualize_candidates(obs, likelihood)
 
         return obs_candidates
 
@@ -262,11 +229,19 @@ class LidarLocalization(Node): # inherit from Node
         self.beacon_no = 0
         for landmark in landmarks_map:
             self.beacon_no += 1
+            self.marker_id = 0
             candidate = {
                 'landmark': landmark,
                 'obs_candidates': self.get_obs_candidate(landmark, obs_raw)
             }
             landmarks_candidate.append(candidate)
+
+        if self.visualize_true:
+            self.remove_old_markers()
+            self.circles_pub.publish(self.marker_array)
+            # self.get_logger().debug("Published marker array")
+            self.marker_array.markers.clear() # clean up (is this enough?)
+
         # print landmarks_candidate for debug
         if self.debug_mode:
             for i, landmark in enumerate(landmarks_candidate):
@@ -383,33 +358,134 @@ class LidarLocalization(Node): # inherit from Node
                 self.get_logger().warn("Linear algebra error: {}".format(e))
             
             # use markerarray to show the landmarks it used
-            if self.visualize_candidate:
-                marker_array = MarkerArray()
-                for i, beacon in enumerate(beacons):
-                    marker = Marker()
-                    marker.header.frame_id = "base_footprint"
-                    marker.header.stamp = self.get_clock().now().to_msg()
-                    marker.ns = "chosen_landmarks"
-                    marker.type = Marker.SPHERE
-                    marker.action = Marker.ADD
-                    marker.scale.x = 0.1
-                    marker.scale.y = 0.1
-                    marker.scale.z = 0.01
-                    marker.pose.position.x = beacon[0]
-                    marker.pose.position.y = beacon[1]
-                    marker.pose.position.z = 0.0
-                    marker.color = ColorRGBA(r=0.0, g=0.5, b=0.5, a=1.0)
-                    marker.id = i
-                    marker_array.markers.append(marker)
-                self.circles_pub.publish(marker_array)
-                self.get_logger().debug("Published marker array")
-                # clean up
-                marker_array.markers.clear()
+            if self.visualize_true:
+                self.visualize_sets(beacons, max_likelihood, landmarks_set[max_likelihood_idx]['consistency'])
             
         else:
             self.get_logger().debug("not enough beacons")
 
         return lidar_pose, lidar_cov
+
+    def visualize_sets(self, beacons, max_likelihood, consistency):
+        marker_array = MarkerArray()
+        for i, beacon in enumerate(beacons):
+            marker = Marker()
+            marker.header.frame_id = "base_footprint"
+            marker.header.stamp = self.get_clock().now().to_msg()
+            marker.ns = "chosen_landmarks"
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+            marker.scale.x = 0.15
+            marker.scale.y = 0.15
+            marker.scale.z = 0.01
+            marker.pose.position.x = beacon[0]
+            marker.pose.position.y = beacon[1]
+            marker.pose.position.z = -0.1
+            if len(beacons) == 3:
+                marker.color = ColorRGBA(r=0.0, g=0.5, b=0.5, a=1.0)
+            elif len(beacons) == 2:
+                marker.color = ColorRGBA(r=0.5, g=0.5, b=0.0, a=1.0)
+            marker.id = i
+            marker_array.markers.append(marker)
+        
+        if len(beacons) == 2:
+            # delete marker id 3
+            marker_delete = Marker()
+            marker_delete.header.frame_id = "base_footprint"
+            marker_delete.ns = "chosen_landmarks"
+            marker_delete.id = 3
+            marker_delete.type = Marker.SPHERE
+            marker_delete.action = Marker.DELETE
+            marker_array.markers.append(marker_delete)
+
+        # add the max_likelihood, consistency to the marker array
+        marker = Marker()
+        marker.header.frame_id = "map"
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns = "set_param"
+        marker.type = Marker.TEXT_VIEW_FACING
+        marker.action = Marker.ADD
+        marker.scale.z = 0.1
+        marker.pose.position.x = 3.5
+        marker.pose.position.y = 2.5
+        marker.pose.position.z = 0.5
+        marker.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
+        marker.text = f"max_likelihood: {max_likelihood:.2f}, consistency: {consistency:.2f}"
+        marker.id = 10
+        marker_array.markers.append(marker)
+        # publish the marker array
+        self.circles_pub.publish(marker_array)
+        self.get_logger().debug("Published marker array")
+        # clean up
+        marker_array.markers.clear()
+
+    def visualize_candidates(self, obs, likelihood):
+
+        self.marker_id += 1
+
+        # circles
+        marker = Marker()
+        marker.header.frame_id = "base_footprint"
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns = f"candidates_circle{self.beacon_no}"
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+        marker.scale.x = 0.1
+        marker.scale.y = 0.1
+        marker.scale.z = 0.01
+
+        marker.pose.position.x = obs[0]
+        marker.pose.position.y = obs[1]
+        marker.pose.position.z = 0.0
+        if self.beacon_no == 1:
+            marker.color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=likelihood)  # Red for beacon 1
+        elif self.beacon_no == 2:
+            marker.color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=likelihood)  # Green for beacon 2
+        elif self.beacon_no == 3:
+            marker.color = ColorRGBA(r=0.0, g=0.0, b=1.0, a=likelihood)  # Blue for beacon 3
+        marker.id = self.marker_id
+        self.marker_array.markers.append(marker)
+
+        # texts
+        text_marker = Marker()
+        text_marker.header.frame_id = "base_footprint"
+        text_marker.header.stamp = self.get_clock().now().to_msg()
+        text_marker.ns = f"candidates_text{self.beacon_no}"
+        text_marker.type = Marker.TEXT_VIEW_FACING
+        text_marker.action = Marker.ADD
+        text_marker.scale.z = 0.1
+        text_marker.color = ColorRGBA(r=0.0, g=0.0, b=0.0, a=0.2)  # White text
+
+        text_marker.pose.position.x = obs[0] + 0.2
+        text_marker.pose.position.y = obs[1]
+        text_marker.pose.position.z = 0.1
+        text_marker.text = f"{likelihood:.2f}"
+        text_marker.id = self.marker_id
+        self.marker_array.markers.append(text_marker)
+
+    def remove_old_markers(self):
+        # remove the old markers
+        num_old_markers = self.marker_num_pre[self.beacon_no - 1] - self.marker_id
+        for i in range(num_old_markers):
+            old_marker = Marker()
+            old_marker.header.frame_id = "base_footprint"
+            old_marker.header.stamp = self.get_clock().now().to_msg()
+            old_marker.ns = f"candidates_circle{self.beacon_no}"
+            old_marker.type = Marker.SPHERE
+            old_marker.action = Marker.DELETE
+            old_marker.id = i + 1
+            self.marker_array.markers.append(old_marker)
+
+            old_text_marker = Marker()
+            old_text_marker.header.frame_id = "base_footprint"
+            old_text_marker.header.stamp = self.get_clock().now().to_msg()
+            old_text_marker.ns = f"candidates_text{self.beacon_no}"
+            old_text_marker.type = Marker.TEXT_VIEW_FACING
+            old_text_marker.action = Marker.DELETE
+            old_text_marker.id = i + 1
+            self.marker_array.markers.append(old_text_marker)
+        # update the marker number
+        self.marker_num_pre[self.beacon_no - 1] = self.marker_id
 
     def get_geometry_consistency(self, beacons):
         geometry_description = {}

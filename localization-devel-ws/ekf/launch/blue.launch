@@ -25,7 +25,7 @@
         <param name="side" value="$(var side)"/>
         <param name="debug_mode" value="False"/>
         <param name="visualize_candidate" value="False"/>
-        <param name="likelihood_threshold" value="0.001"/>
+        <param name="likelihood_threshold" value="0.2"/>
         <param name="consistency_threshold" value="0.97"/>
     </node>
 
