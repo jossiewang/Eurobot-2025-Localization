@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import math
-from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped, PoseWithCovariance
+from geometry_msgs.msg import TransformStamped, PoseWithCovarianceStamped, PoseStamped
 from nav_msgs.msg import Odometry
 import numpy as np
 
@@ -20,13 +20,6 @@ def quaternion_from_euler(roll, pitch, yaw):
             cr * cp * cy + sr * sp * sy]
 
 def euler_from_quaternion(x, y, z, w):
-    t0, t1 = +2.0 * (w * x + y * z), +1.0 - 2.0 * (x * x + y * y)
-    roll = math.atan2(t0, t1)
-
-    t2 = +2.0 * (w * y - z * x)
-    t2 = +1.0 if t2 > +1.0 else -1.0 if t2 < -1.0 else t2
-    pitch = math.asin(t2)
-
     t3, t4 = +2.0 * (w * z + x * y), +1.0 - 2.0 * (y * y + z * z)
     yaw = math.atan2(t3, t4) 
     return yaw
@@ -92,7 +85,7 @@ class EKFFootprintBroadcaster(Node):
         self.r_threshold_theta = self.get_parameter('r_threshold_theta').value
     def init_topics(self):
         self.create_subscription(PoseWithCovarianceStamped, 'lidar_pose', self.gps_callback, 1)
-        self.create_subscription(PoseWithCovariance, 'initial_pose', self.init_callback,1)
+        self.create_subscription(PoseWithCovarianceStamped, 'initial_pose', self.init_callback,1)
         self.create_subscription(Odometry, 'local_filter', self.local_callback, 1)
         self.create_subscription(PoseStamped, '/ceiling_robot/pose', self.camera_callback, 1)
         self.ekf_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, 'final_pose', 1)
@@ -100,21 +93,21 @@ class EKFFootprintBroadcaster(Node):
     
     def init_callback(self, msg):
         
-        self.X[0] = msg.pose.position.x
-        self.X[1] = msg.pose.position.y
+        self.X[0] = msg.pose.pose.position.x
+        self.X[1] = msg.pose.pose.position.y
 
         theta = euler_from_quaternion(
-            msg.pose.orientation.x,
-            msg.pose.orientation.y,
-            msg.pose.orientation.z,
-            msg.pose.orientation.w
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w
         )
         self.X[2] = theta
-        if msg.covariance[0] > 0 and msg.covariance[7] > 0 and msg.covariance[35] > 0:
-            if msg.covariance[0] < 1 and msg.covariance[7] < 1 and msg.covariance[35] < 1:
-                self.P[0, 0] = msg.covariance[0]
-                self.P[1, 1] = msg.covariance[7]
-                self.P[2, 2] = msg.covariance[35]
+        if msg.pose.covariance[0] > 0 and msg.pose.covariance[7] > 0 and msg.pose.covariance[35] > 0:
+            if msg.pose.covariance[0] < 1 and msg.pose.covariance[7] < 1 and msg.pose.covariance[35] < 1:
+                self.P[0, 0] = msg.pose.covariance[0]
+                self.P[1, 1] = msg.pose.covariance[7]
+                self.P[2, 2] = msg.pose.covariance[35]
 
     def gps_callback(self, msg):
         self.gps_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
@@ -181,7 +174,6 @@ class EKFFootprintBroadcaster(Node):
         v_x = msg.twist.twist.linear.x
         v_y = msg.twist.twist.linear.y
         w = msg.twist.twist.angular.z
-        # self.get_logger().info(f"dTime:{dt}, d_x:{delta_x}")
         self.ekf_predict(v_x, v_y, w, dt) 
 
     def ekf_predict(self, v_x, v_y, w, dt):
@@ -200,10 +192,6 @@ class EKFFootprintBroadcaster(Node):
         self.X[2] += w * dt
         self.footprint_publish()
         self.P = self.P + self.Q
-        # if (self.P[0, 0] > 1e-2) | (self.P[1, 1] > 1e-2 ) | (self.P[2, 2] > 0.003) :
-        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
-        #     self.P = np.eye(3) * 1e-2
-        #     self.P[2, 2] = 0.003
 
     def ekf_update(self, z, R):
         if np.any(np.isnan(z)):  # Check if the measurement is valid
@@ -212,16 +200,10 @@ class EKFFootprintBroadcaster(Node):
         
         K = self.P @ np.linalg.inv(self.P + R)
         self.P = (np.eye(3) - K) @ self.P
-        # self.X = self.X + K @ (z - self.X) # here we should make sure angle subtraction, not just z - self.X
         residual = z - self.X
         if abs(residual[2]) > math.pi:
             residual[2] = normalize_angle(residual[2])
         self.X = self.X + K @ residual
-
-        # if (self.P[0, 0] > 1e-2) | (self.P[1, 1] > 1e-2 ) | (self.P[2, 2] > 0.003) : # TODO: position and theta should be checked seperately
-        #     self.get_logger().warn(f"large Cov_update:{self.P[0, 0]},{self.P[1, 1]},{self.P[2, 2]}")
-        #     self.P = np.eye(3) * 1e-2
-        #     self.P[2, 2] = 0.003
             
     def footprint_publish(self):
         self.final_pose.header.stamp = self.get_clock().now().to_msg()
