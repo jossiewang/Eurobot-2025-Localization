@@ -142,9 +142,9 @@ class LidarLocalization(Node): # inherit from Node
             orientation += 2 * np.pi
         self.robot_pose = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, orientation])
         self.P_pred = np.array([
-            [msg.pose.covariance[0]*50, 0, 0],
-            [0, msg.pose.covariance[7]*50, 0],
-            [0, 0, msg.pose.covariance[35]*1e4]
+            [msg.pose.covariance[0]*10, 0, 0],
+            [0, msg.pose.covariance[7]*10, 0],
+            [0, 0, msg.pose.covariance[35]*10]
         ])
 
     def set_lidar_side_callback(self, msg):
