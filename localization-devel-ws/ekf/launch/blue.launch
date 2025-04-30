@@ -5,13 +5,12 @@
     <!-- EKF -->
 
     <node pkg="ekf" exec="ekf_node" name="ekf_node" output="screen">
-        <param name="/use_sim_time" value="false" />
         <param name="use_cam" value="0" />
-        <param name="update_rate" value="1" />
         <param name="robot_parent_frame_id" value="map" />
         <param name="robot_frame_id" value="base_footprint" />
-        <param name="q_linear" value="1e-5" />
-        <param name="q_angular" value="1e-6" />
+        <param name="/use_sim_time" value="false" />
+        <param name="q_linear" value="1.2e-5" />
+        <param name="q_angular" value="1.7e-6" /> 
         <param name="r_camra_linear" value="1e-2"  />
         <param name="r_camra_angular" value="0.15"  />
         <param name="r_threshold_xy" value="1e-3"    />
@@ -25,8 +24,8 @@
     <node pkg="lidar_localization_pkg" exec="lidar_localization" name="lidar_localization" output="screen">
         <param name="side" value="$(var side)"/>
         <param name="debug_mode" value="False"/>
-        <param name="visualize_candidate" value="False"/>
-        <param name="likelihood_threshold" value="0.2"/>
+        <param name="visualize_candidate" value="True"/>
+        <param name="likelihood_threshold" value="0.8"/>
         <param name="consistency_threshold" value="0.97"/>
     </node>
 
