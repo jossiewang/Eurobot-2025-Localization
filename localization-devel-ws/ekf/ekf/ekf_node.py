@@ -34,7 +34,7 @@ class EKFFootprintBroadcaster(Node):
     def __init__(self):
         super().__init__('ekf')
         
-        self.X = np.array([0.0, 0.0, 0.0])  # State vector: x, y, theta
+        self.X = np.array([0.4, 1.7, 0.0])  # State vector: x, y, theta
         self.P = np.eye(3) * 9 * 1e-4
         self.P[2, 2] = 0.003 
         self.Q = np.eye(3) 
