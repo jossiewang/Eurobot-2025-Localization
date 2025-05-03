@@ -1,7 +1,8 @@
 import rclpy
 from rclpy.node import Node
-from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
 # from datetime import datetime  # Import for date and time
 # import os  # Import for file operations
 
@@ -36,8 +37,8 @@ class HealthCheckNode(Node):
         self.subscription # prevent unused variable warning
 
         # TF buffer
-        self.tf_buffer = rclpy.transformations.TransformBuffer()
-        self.tf_listener = rclpy.transformations.TransformListener(self.tf_buffer, self)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
         
         # # Create health report file
         # self.create_health_report_file()
@@ -91,8 +92,8 @@ class HealthCheckNode(Node):
             return False
         if not self.wheel_slip_first:
             # compare the displacement of the odometry and the lidar pose
-            odom_displacement_x = self.odom2map.pose.pose.position.x - self.odom_x_prev
-            odom_displacement_y = self.odom2map.pose.pose.position.y - self.odom_y_prev
+            odom_displacement_x = self.odom2map.pose.position.x - self.odom_x_prev
+            odom_displacement_y = self.odom2map.pose.position.y - self.odom_y_prev
             lidar_displacement_x = self.lidar_pose.pose.pose.position.x - self.lidar_x_prev
             lidar_displacement_y = self.lidar_pose.pose.pose.position.y - self.lidar_y_prev
             slip_x = abs(odom_displacement_x - lidar_displacement_x)
@@ -110,8 +111,8 @@ class HealthCheckNode(Node):
                 self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
                 # a service to warn lidar_localization
                 return False
-        self.odom_x_prev = self.odom2map.pose.pose.position.x
-        self.odom_y_prev = self.odom2map.pose.pose.position.y
+        self.odom_x_prev = self.odom2map.pose.position.x
+        self.odom_y_prev = self.odom2map.pose.position.y
         self.lidar_x_prev = self.lidar_pose.pose.pose.position.x
         self.lidar_y_prev = self.lidar_pose.pose.pose.position.y
         self.wheel_slip_first = False
@@ -122,7 +123,7 @@ class HealthCheckNode(Node):
         tf_retry_count = 0
         while rclpy.ok(): # is it safe to use while loop? it is a blocking function
             tf_retry_count += 1
-            self.get_clock().sleep_for(rclpy.duration.Duration(seconds=0.5))
+            self.get_clock().sleep_for(rclpy.duration.Duration(seconds=1))
 
             tf_ok = True
 
@@ -136,9 +137,9 @@ class HealthCheckNode(Node):
             except Exception as e:
                 tf_ok = False
                 self.get_logger().warn(f"TF lookup failed: {e}")
-
             try:
-                self.tf_buffer.lookup_transform(
+                self.tf_buffer.can_transform(
+
                     self.p_rival_frame_id,
                     self.p_map_frame_id,
                     rclpy.time.Time()
