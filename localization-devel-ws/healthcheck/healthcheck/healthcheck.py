@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
 
 class HealthCheckNode(Node):
     def __init__(self):
@@ -20,9 +20,9 @@ class HealthCheckNode(Node):
 
         # Subscribers: final_pose, local_filter, lidar_pose, imu/data_cov, odom2map, rival/final_pose
         self.subscription = self.create_subscription(
-            Odometry,
-            'local_filter',
-            self.local_filter_callback,
+            PoseStamped,
+            'odom2map',
+            self.odom2map_callback,
             10
         )
         self.subscription = self.create_subscription(
@@ -33,16 +33,22 @@ class HealthCheckNode(Node):
         )
         self.subscription # prevent unused variable warning
 
+        # TF buffer
+        self.tf_buffer = rclpy.transformations.TransformBuffer()
+        self.tf_listener = rclpy.transformations.TransformListener(self.tf_buffer, self)
+        
         self.check_localization_ok()
 
         # Timer for health check (3 seconds interval)
         self.timer = self.create_timer(3.0, self.health_check_timer_callback)
 
+        self.wheel_slip_first = True
+
     def check_localization_ok(self):
         # Conditions to satisfy for localization ok
         # 1. TF is published and without error; base_footprint and rival/base_footprint are published
         self.check_tf_ok()
-        # 2. local_filter and imu/data_cov are published (TODO)
+        # 2. local_filter, odom2map and imu/data_cov are published (TODO) (what;s the difference oddom2map and local_filter? can they be merged?)
         # 3. lidar_pose is published and agree with either initial pose or camera pose (TODO)
         # 4. warn if camera_pose is missing (TODO)
         # if localization_ok, response to main (a service?), and ekf, lidar param set to 'running' (TODO)
@@ -55,25 +61,31 @@ class HealthCheckNode(Node):
 
     def dead_wheel_slip_estimation(self):
         # Check for dead wheel slip estimation
-        # compare the displacement of the odometry and the lidar pose
-        odom_displacement_x = self.local_filter.pose.pose.position.x - odom_x_prev
-        odom_displacement_y = self.local_filter.pose.pose.position.y - odom_y_prev
-        lidar_displacement_x = self.lidar_pose.pose.pose.position.x - lidar_x_prev
-        lidar_displacement_y = self.lidar_pose.pose.pose.position.y - lidar_y_prev
-        slip_x = abs(odom_displacement_x - lidar_displacement_x)
-        slip_y = abs(odom_displacement_y - lidar_displacement_y)
-        self.get_logger().debug(f"Slip X: {slip_x}, Slip Y: {slip_y}")
-        # the checking frequency cannot be too high, otherwise it will be affected by lidar's large noise,
-        # additionally, the noise of lidar should be within 1 cm,
-        # so in 3 seconds, maybe the slip could be within 3 cm
-        if slip_x > 0.03 or slip_y > 0.03:
-            self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
-            # a service to warn lidar_localization
+        # Check the availability of the odom2map and lidar_pose
+        if not hasattr(self, 'odom2map') or not hasattr(self, 'lidar_pose'):
+            self.get_logger().warn("odom2map or lidar_pose not available")
             return False
-        odom_x_prev = self.local_filter.pose.pose.position.x
-        odom_y_prev = self.local_filter.pose.pose.position.y
-        lidar_x_prev = self.lidar_pose.pose.pose.position.x
-        lidar_y_prev = self.lidar_pose.pose.pose.position.y
+        if not self.wheel_slip_first:
+            # compare the displacement of the odometry and the lidar pose
+            odom_displacement_x = self.odom2map.pose.pose.position.x - self.odom_x_prev
+            odom_displacement_y = self.odom2map.pose.pose.position.y - self.odom_y_prev
+            lidar_displacement_x = self.lidar_pose.pose.pose.position.x - self.lidar_x_prev
+            lidar_displacement_y = self.lidar_pose.pose.pose.position.y - self.lidar_y_prev
+            slip_x = abs(odom_displacement_x - lidar_displacement_x)
+            slip_y = abs(odom_displacement_y - lidar_displacement_y)
+            self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}")
+            # the checking frequency cannot be too high, otherwise it will be affected by lidar's large noise,
+            # additionally, the noise of lidar should be within 1 cm,
+            # so in 3 seconds, maybe the slip could be within 3 cm
+            if slip_x > 0.03 or slip_y > 0.03:
+                self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
+                # a service to warn lidar_localization
+                return False
+        self.odom_x_prev = self.odom2map.pose.pose.position.x
+        self.odom_y_prev = self.odom2map.pose.pose.position.y
+        self.lidar_x_prev = self.lidar_pose.pose.pose.position.x
+        self.lidar_y_prev = self.lidar_pose.pose.pose.position.y
+        self.wheel_slip_first = False
         return True
     
 
@@ -89,7 +101,7 @@ class HealthCheckNode(Node):
             try:
                 self.tf_buffer.can_transform(
                     self.p_robot_frame_id,
-                    self.p_base_footprint_frame_id,
+                    self.p_map_frame_id,
                     rclpy.time.Time()
                 )
             except Exception as e:
@@ -99,33 +111,12 @@ class HealthCheckNode(Node):
             try:
                 self.tf_buffer.lookup_transform(
                     self.p_rival_frame_id,
-                    self.p_base_footprint_frame_id,
+                    self.p_map_frame_id,
                     rclpy.time.Time()
                 )
             except Exception as e:
                 tf_ok = False
                 self.get_logger().warn(f"TF lookup failed: {e}")
-
-            for i in range(1, 4):
-                try:
-                    self.tf_buffer.can_transform(
-                        self.p_beacon_parent_frame_id,
-                        f"{self.p_beacon_frame_id_prefix}_{i}",
-                        rclpy.time.Time()
-                    )
-                except Exception as e:
-                    tf_ok = False
-                    self.get_logger().warn(f"TF lookup failed: {e}")
-
-                try:
-                    self.tf_buffer.lookup_transform(
-                        self.p_robot_frame_id,
-                        f"{self.p_beacon_frame_id_prefix}_{i}",
-                        rclpy.time.Time()
-                    )
-                except Exception as e:
-                    tf_ok = False
-                    self.get_logger().warn(f"TF lookup failed: {e}")
 
             if tf_ok:
                 return True
@@ -162,12 +153,10 @@ class HealthCheckNode(Node):
     #     # compare odom2map, lidar_pose and camera_pose
     #     # warn if any one of them has a large difference
 
-    def local_filter_callback(self, msg):
-        self.get_logger().info(f"Received Odometry data: {msg}")
-        self.local_filter = msg
+    def odom2map_callback(self, msg):
+        self.odom2map = msg
 
     def lidar_pose_callback(self, msg):
-        self.get_logger().info(f"Received PoseWithCovarianceStamped data: {msg}")
         self.lidar_pose = msg
 
 def main(args=None):
