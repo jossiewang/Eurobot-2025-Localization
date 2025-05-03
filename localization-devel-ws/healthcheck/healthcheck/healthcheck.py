@@ -2,6 +2,8 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
+# from datetime import datetime  # Import for date and time
+# import os  # Import for file operations
 
 class HealthCheckNode(Node):
     def __init__(self):
@@ -37,12 +39,34 @@ class HealthCheckNode(Node):
         self.tf_buffer = rclpy.transformations.TransformBuffer()
         self.tf_listener = rclpy.transformations.TransformListener(self.tf_buffer, self)
         
+        # # Create health report file
+        # self.create_health_report_file()
+
         self.check_localization_ok()
 
         # Timer for health check (3 seconds interval)
         self.timer = self.create_timer(3.0, self.health_check_timer_callback)
 
         self.wheel_slip_first = True
+
+    # def create_health_report_file(self):
+    #     # Generate the filename based on the current date and time
+    #     now = datetime.now()
+    #     filename = now.strftime("%Y-%m-%d_%H-%M-%S_health_report.txt")
+    #     report_dir = '/user/localization/localization_ws/src/localization-devel-ws/healthcheck/report'
+
+    #     # Ensure the directory exists
+    #     os.makedirs(report_dir, exist_ok=True)
+
+    #     # Full path to the report file
+    #     self.report_file_path = os.path.join(report_dir, filename)
+
+    #     # Create the file and write the header
+    #     with open(self.report_file_path, 'w') as file:
+    #         file.write("Health Report\n")
+    #         file.write(f"Generated on: {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    #         file.write("=" * 40 + "\n")
+    #     self.get_logger().info(f"Health report file created: {self.report_file_path}")
 
     def check_localization_ok(self):
         # Conditions to satisfy for localization ok
@@ -77,6 +101,11 @@ class HealthCheckNode(Node):
             # the checking frequency cannot be too high, otherwise it will be affected by lidar's large noise,
             # additionally, the noise of lidar should be within 1 cm,
             # so in 3 seconds, maybe the slip could be within 3 cm
+            
+            # # Append slip data to the health report file
+            # with open(self.report_file_path, 'a') as file:
+            #     file.write(f"Slip X: {slip_x}, Slip Y: {slip_y}\n")
+
             if slip_x > 0.03 or slip_y > 0.03:
                 self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
                 # a service to warn lidar_localization
