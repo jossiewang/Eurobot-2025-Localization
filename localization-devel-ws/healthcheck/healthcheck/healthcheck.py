@@ -3,8 +3,17 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+import math
 # from datetime import datetime  # Import for date and time
 # import os  # Import for file operations
+
+def rpy_from_quaternion(x, y, z, w):
+    # yaw (z-axis rotation)
+    siny_cosp = 2 * (w * z + x * y)
+    cosy_cosp = 1 - 2 * (y * y + z * z)
+    yaw = math.atan2(siny_cosp, cosy_cosp)
+
+    return yaw
 
 class HealthCheckNode(Node):
     def __init__(self):
@@ -15,11 +24,15 @@ class HealthCheckNode(Node):
         self.declare_parameter('map_frame_id', 'map')
         self.declare_parameter('rival_frame_id', 'rival/base_footprint')
         self.declare_parameter('lidar_frame_id', 'laser')
-
+    
         self.p_robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
         self.p_map_frame_id = self.get_parameter('map_frame_id').get_parameter_value().string_value
         self.p_rival_frame_id = self.get_parameter('rival_frame_id').get_parameter_value().string_value
         self.p_lidar_frame_id = self.get_parameter('lidar_frame_id').get_parameter_value().string_value
+
+        self.get_init = False
+        self.odom_init = False
+        self.prev_camera_pose = None
 
         # Subscribers: final_pose, local_filter, lidar_pose, imu/data_cov, odom2map, rival/final_pose
         self.subscription = self.create_subscription(
@@ -34,8 +47,26 @@ class HealthCheckNode(Node):
             self.lidar_pose_callback,
             10
         )
+        self.subscription =self.create_subscription(
+            PoseStamped,
+            '/vision/aruco/robot/single/average_pose',
+            self.camera_pose_callback,
+            10
+        )
+        self.subscription = self.create_subscription(
+            PoseWithCovarianceStamped,
+            'initial_pose',
+            self.init_pose_callback,
+            10
+        )
         self.subscription # prevent unused variable warning
 
+        self.publication = self.create_publisher(
+            PoseWithCovarianceStamped,
+            'initialpose',
+            10
+        )
+        self.publication # prevent unused variable warning
         # TF buffer
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -47,7 +78,7 @@ class HealthCheckNode(Node):
 
         # Timer for health check (3 seconds interval)
         self.timer = self.create_timer(3.0, self.health_check_timer_callback)
-
+        self.timer2 = self.create_timer(0.5, self.check_final_pose)
         self.wheel_slip_first = True
 
     # def create_health_report_file(self):
@@ -179,16 +210,65 @@ class HealthCheckNode(Node):
     #     self.get_logger().info(f"Latest orientation z data: {self.orientation_z_data}")
     #     return True
 
-    # def check_final_pose(self):
-    #     # compare odom2map, lidar_pose and camera_pose
-    #     # warn if any one of them has a large difference
+    def check_final_pose(self):
+        # compare odom2map, lidar_pose and camera_pose
+        # warn if any one of them has a large difference
+        if not hasattr(self, 'odom2map') or not hasattr(self, 'lidar_pose') or not hasattr(self, 'camera_pose'):
+            self.get_logger().warn("odom2map, lidar_pose or camera_pose not available")
+            return False
+        
+        lidar_yaw = rpy_from_quaternion(
+            self.lidar_pose.pose.pose.orientation.x,
+            self.lidar_pose.pose.pose.orientation.y,
+            self.lidar_pose.pose.pose.orientation.z,
+            self.lidar_pose.pose.pose.orientation.w
+        )
+        odom_yaw = rpy_from_quaternion(
+            self.odom2map.pose.orientation.x,
+            self.odom2map.pose.orientation.y,
+            self.odom2map.pose.orientation.z,
+            self.odom2map.pose.orientation.w
+        )
+        if abs(self.lidar_pose.pose.pose.position.x - self.camera_pose.pose.pose.position.x) > 0.1 or \
+            abs(self.lidar_pose.pose.pose.position.y - self.camera_pose.pose.pose.position.y) > 0.1:
+                self.get_logger().warn("lidar_pose and camera_pose have a large difference")
+                return False
+        self.get_init = True
+        if abs(self.odom2map.pose.position.x - self.lidar_pose.pose.pose.position.x) > 0.05 or \
+            abs(self.odom2map.pose.position.y - self.lidar_pose.pose.pose.position.y) > 0.05 or \
+            abs(odom_yaw - lidar_yaw) > 0.02:
+                self.get_logger().warn("odom2map and lidar_pose have a large difference")
+                return False
+        if abs(self.odom2map.pose.position.x - self.camera_pose.pose.pose.position.x) > 0.05 or \
+            abs(self.odom2map.pose.position.y - self.camera_pose.pose.pose.position.y) > 0.05:
+                self.get_logger().warn("odom2map and camera_pose have a large difference")
+                return False
+        self.odom_init = True
+        return True
 
     def odom2map_callback(self, msg):
         self.odom2map = msg
 
     def lidar_pose_callback(self, msg):
         self.lidar_pose = msg
+        if self.get_init and not self.odom_init:
+            self.publication.publish(msg)
 
+    def camera_pose_callback(self, msg):
+        if not self.get_init:
+            self.camera_pose = PoseWithCovarianceStamped()
+            self.camera_pose.header.stamp = msg.header.stamp
+            self.camera_pose.header.frame_id = self.p_map_frame_id
+            self.camera_pose.pose.pose.position = msg.pose.position
+            self.camera_pose.pose.pose.orientation = msg.pose.orientation
+            self.publication.publish(self.camera_pose)
+
+    def init_pose_callback(self, msg):
+        self.init_pose = msg
+        self.publication.publish(msg)
+        self.get_logger().info("Initial pose published")
+        self.get_init = True
+        
 def main(args=None):
     rclpy.init(args=args)
     node = HealthCheckNode()
