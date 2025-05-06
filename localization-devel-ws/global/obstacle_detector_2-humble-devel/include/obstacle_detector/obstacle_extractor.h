@@ -55,7 +55,7 @@
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
-#include "nav_msgs/msg/odometry.cpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "std_srvs/srv/empty.hpp"
 #include "sensor_msgs/msg/point_field.hpp"
 
