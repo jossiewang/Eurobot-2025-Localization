@@ -81,8 +81,10 @@ class HealthCheckNode(Node):
         self.timer2 = self.create_timer(0.5, self.check_final_pose)
         self.wheel_slip_first = True
 
-        # List to store slip values
+        # for slip estimation
         self.slip_values = []
+        self.new_lidar = False
+        self.new_odom = False
 
     def create_health_report_file(self):
         # Generate the filename based on the current date and time
@@ -124,31 +126,59 @@ class HealthCheckNode(Node):
         if not hasattr(self, 'odom2map') or not hasattr(self, 'lidar_pose'):
             self.get_logger().warn("odom2map or lidar_pose not available")
             return False
+
+        if not self.new_odom or not self.new_lidar:
+            self.get_logger().warn("odom2map or lidar_pose not updated")
+            return False
+        
+        # Record the timestamp of the latest lidar_pose
+        lidar_time = self.lidar_pose.header.stamp
+
+        # Use lookup_transform to get the transform between odom2map at the lidar_pose timestamp and now
+        odom_tf = self.tf_buffer.lookup_transform(
+            self.p_map_frame_id,
+            self.p_robot_frame_id,
+            lidar_time
+        )
+            
         if not self.wheel_slip_first:
-            # compare the displacement of the odometry and the lidar pose
-            odom_displacement_x = self.odom2map.pose.position.x - self.odom_x_prev
-            odom_displacement_y = self.odom2map.pose.position.y - self.odom_y_prev
-            lidar_displacement_x = self.lidar_pose.pose.pose.position.x - self.lidar_x_prev
-            lidar_displacement_y = self.lidar_pose.pose.pose.position.y - self.lidar_y_prev
-            slip_x = abs(odom_displacement_x - lidar_displacement_x)
-            slip_y = abs(odom_displacement_y - lidar_displacement_y)
-            slip_magnitude = math.sqrt(slip_x**2 + slip_y**2)  # Calculate the magnitude of the slip
-            self.slip_values.append(slip_magnitude)  # Store the slip magnitude
+            try:
 
-            self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}, Magnitude: {slip_magnitude}")
+                # Calculate the displacement from the transform
+                odom_displacement_x = odom_tf.transform.translation.x - self.odom_x_prev
+                odom_displacement_y = odom_tf.transform.translation.y - self.odom_y_prev
 
-            # Append slip data to the health report file
-            with open(self.report_file_path, 'a') as file:
-                file.write(f"Slip X: {slip_x}, Slip Y: {slip_y}\n")
+                # Calculate the displacement from lidar_pose
+                lidar_displacement_x = self.lidar_pose.pose.pose.position.x - self.lidar_x_prev
+                lidar_displacement_y = self.lidar_pose.pose.pose.position.y - self.lidar_y_prev
 
-            if slip_x > 0.03 or slip_y > 0.03:
-                self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
-                # a service to warn lidar_localization
-        self.odom_x_prev = self.odom2map.pose.position.x
-        self.odom_y_prev = self.odom2map.pose.position.y
+                # Compare the displacements
+                slip_x = abs(odom_displacement_x - lidar_displacement_x)
+                slip_y = abs(odom_displacement_y - lidar_displacement_y)
+                slip_magnitude = math.sqrt(slip_x**2 + slip_y**2) # for analysis
+                self.slip_values.append(slip_magnitude)
+
+                self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}, Magnitude: {slip_magnitude}")
+
+                # Append slip data to the health report file
+                with open(self.report_file_path, 'a') as file:
+                    file.write(f"Slip X: {slip_x}, Slip Y: {slip_y}\n")
+
+                if slip_x > 0.03 or slip_y > 0.03: # TODO: more test on this, it shouldn't be so frequent!
+                    self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
+
+
+            except Exception as e:
+                self.get_logger().error(f"Error during slip estimation: {e}")
+
+        # Update previous positions
         self.lidar_x_prev = self.lidar_pose.pose.pose.position.x
         self.lidar_y_prev = self.lidar_pose.pose.pose.position.y
+        self.odom_x_prev = odom_tf.transform.translation.x
+        self.odom_y_prev = odom_tf.transform.translation.y
         self.wheel_slip_first = False
+        self.new_odom = False
+        self.new_lidar = False
         return True
     
 
@@ -250,9 +280,11 @@ class HealthCheckNode(Node):
 
     def odom2map_callback(self, msg):
         self.odom2map = msg
+        self.new_odom = True
 
     def lidar_pose_callback(self, msg):
         self.lidar_pose = msg
+        self.new_lidar = True
         if self.get_init and not self.odom_init:
             self.publication.publish(msg)
 
