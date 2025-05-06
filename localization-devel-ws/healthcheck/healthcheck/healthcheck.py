@@ -4,8 +4,8 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 import math
-# from datetime import datetime  # Import for date and time
-# import os  # Import for file operations
+from datetime import datetime  # Import for date and time
+import os  # Import for file operations
 
 def rpy_from_quaternion(x, y, z, w):
     # yaw (z-axis rotation)
@@ -72,7 +72,7 @@ class HealthCheckNode(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
         
         # # Create health report file
-        # self.create_health_report_file()
+        self.create_health_report_file()
 
         self.check_localization_ok()
 
@@ -81,24 +81,27 @@ class HealthCheckNode(Node):
         self.timer2 = self.create_timer(0.5, self.check_final_pose)
         self.wheel_slip_first = True
 
-    # def create_health_report_file(self):
-    #     # Generate the filename based on the current date and time
-    #     now = datetime.now()
-    #     filename = now.strftime("%Y-%m-%d_%H-%M-%S_health_report.txt")
-    #     report_dir = '/user/localization/localization_ws/src/localization-devel-ws/healthcheck/report'
+        # List to store slip values
+        self.slip_values = []
 
-    #     # Ensure the directory exists
-    #     os.makedirs(report_dir, exist_ok=True)
+    def create_health_report_file(self):
+        # Generate the filename based on the current date and time
+        now = datetime.now()
+        filename = now.strftime("%Y-%m-%d_%H-%M-%S_health_report.txt")
+        report_dir = '/home/user/localization-ws/src/localization-devel-ws/healthcheck/report'
 
-    #     # Full path to the report file
-    #     self.report_file_path = os.path.join(report_dir, filename)
+        # Ensure the directory exists
+        os.makedirs(report_dir, exist_ok=True)
 
-    #     # Create the file and write the header
-    #     with open(self.report_file_path, 'w') as file:
-    #         file.write("Health Report\n")
-    #         file.write(f"Generated on: {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
-    #         file.write("=" * 40 + "\n")
-    #     self.get_logger().info(f"Health report file created: {self.report_file_path}")
+        # Full path to the report file
+        self.report_file_path = os.path.join(report_dir, filename)
+
+        # Create the file and write the header
+        with open(self.report_file_path, 'w') as file:
+            file.write("Health Report\n")
+            file.write(f"Generated on: {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            file.write("=" * 40 + "\n")
+        self.get_logger().info(f"Health report file created: {self.report_file_path}")
 
     def check_localization_ok(self):
         # Conditions to satisfy for localization ok
@@ -129,19 +132,18 @@ class HealthCheckNode(Node):
             lidar_displacement_y = self.lidar_pose.pose.pose.position.y - self.lidar_y_prev
             slip_x = abs(odom_displacement_x - lidar_displacement_x)
             slip_y = abs(odom_displacement_y - lidar_displacement_y)
-            self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}")
-            # the checking frequency cannot be too high, otherwise it will be affected by lidar's large noise,
-            # additionally, the noise of lidar should be within 1 cm,
-            # so in 3 seconds, maybe the slip could be within 3 cm
-            
-            # # Append slip data to the health report file
-            # with open(self.report_file_path, 'a') as file:
-            #     file.write(f"Slip X: {slip_x}, Slip Y: {slip_y}\n")
+            slip_magnitude = math.sqrt(slip_x**2 + slip_y**2)  # Calculate the magnitude of the slip
+            self.slip_values.append(slip_magnitude)  # Store the slip magnitude
+
+            self.get_logger().info(f"Slip X: {slip_x}, Slip Y: {slip_y}, Magnitude: {slip_magnitude}")
+
+            # Append slip data to the health report file
+            with open(self.report_file_path, 'a') as file:
+                file.write(f"Slip X: {slip_x}, Slip Y: {slip_y}\n")
 
             if slip_x > 0.03 or slip_y > 0.03:
                 self.get_logger().warn(f"Dead wheel slip detected! Slip X: {slip_x}, Slip Y: {slip_y}")
                 # a service to warn lidar_localization
-                return False
         self.odom_x_prev = self.odom2map.pose.position.x
         self.odom_y_prev = self.odom2map.pose.position.y
         self.lidar_x_prev = self.lidar_pose.pose.pose.position.x
@@ -268,6 +270,26 @@ class HealthCheckNode(Node):
         self.publication.publish(msg)
         self.get_logger().info("Initial pose published")
         self.get_init = True
+
+    def destroy_node(self):
+        # Calculate max and average slip
+        if self.slip_values:
+            max_slip = max(self.slip_values)
+            avg_slip = sum(self.slip_values) / len(self.slip_values)
+        else:
+            max_slip = 0.0
+            avg_slip = 0.0
+
+        # Write max and average slip to the health report file
+        with open(self.report_file_path, 'a') as file:
+            file.write("\nSummary:\n")
+            file.write(f"Max Slip: {max_slip}\n")
+            file.write(f"Average Slip: {avg_slip}\n")
+
+        self.get_logger().info(f"Max Slip: {max_slip}, Average Slip: {avg_slip}")
+
+        # Call the parent class's destroy_node method
+        super().destroy_node()
         
 def main(args=None):
     rclpy.init(args=args)
