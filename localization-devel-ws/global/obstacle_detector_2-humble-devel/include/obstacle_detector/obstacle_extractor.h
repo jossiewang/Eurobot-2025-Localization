@@ -64,6 +64,9 @@
 #include "obstacle_detector/msg/circle_obstacle.hpp"
 #include "obstacle_detector/msg/segment_obstacle.hpp"
 
+#include "laser_filters/scan_shadow_detector.h"
+
+
 
 namespace obstacle_detector
 {
@@ -99,6 +102,7 @@ private:
   bool checkSegmentsProximity(const Segment& s1, const Segment& s2);
   bool checkSegmentsCollinearity(const Segment& segment, const Segment& s1, const Segment& s2);
   Point distortionCorrection(sensor_msgs::msg::LaserScan, double*, double, double);
+  bool removeShadow(const sensor_msgs::msg::LaserScan& scan_in, sensor_msgs::msg::LaserScan& scan_out);
   void detectCircles();
   void mergeCircles();
   bool compareCircles(const Circle& c1, const Circle& c2, Circle& merged_circle);
@@ -113,6 +117,7 @@ private:
   rclcpp::Publisher<obstacle_detector::msg::Obstacles>::SharedPtr obstacles_pub_;
   // rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr obstacles_vis_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr obstacles_vis_pcl_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr rm_shadow_pub_;
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr params_srv_;
 
   rclcpp::Time stamp_;
@@ -158,6 +163,14 @@ private:
 
   std::string p_frame_id_;
   std::string published_obstacles_frame_id_ = "";
+
+  // for remove shadow
+  double min_angle_, max_angle_;  // Filter angle threshold
+  int window_, neighbors_;
+  bool remove_shadow_start_point_;
+  sensor_msgs::msg::LaserScan msg_;
+  laser_filters::ScanShadowDetector shadow_detector_;  // Shadow detector instance
+  std::shared_ptr<rclcpp::Node> logging_interface_;    // Logging interface
 };
 
 } // namespace obstacle_detector

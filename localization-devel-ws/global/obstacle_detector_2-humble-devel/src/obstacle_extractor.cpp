@@ -36,22 +36,16 @@
 #include "obstacle_detector/obstacle_extractor.h"
 #include "obstacle_detector/utilities/figure_fitting.h"
 #include "obstacle_detector/utilities/math_utilities.h"
+#include "laser_filters/scan_shadow_detector.h"
 
 using namespace std;
 using namespace obstacle_detector;
 
-ObstacleExtractor::ObstacleExtractor(std::shared_ptr<rclcpp::Node> nh, std::shared_ptr<rclcpp::Node> nh_local){
+ObstacleExtractor::ObstacleExtractor(std::shared_ptr<rclcpp::Node> nh, std::shared_ptr<rclcpp::Node> nh_local)
+  : shadow_detector_(), logging_interface_(nh) {  // Initialize shadow_detector_ and logging_interface_
   nh_ = nh;
   nh_local_ = nh_local;
   p_active_ = false;
-//   params_srv_ = nh_->create_service<std_srvs::srv::Empty>("params", 
-//                                                           std::bind(
-//                                                                 &ObstacleExtractor::updateParams,
-//                                                                 this, 
-//                                                                 std::placeholders::_1,
-//                                                                 std::placeholders::_2,
-//                                                                 std::placeholders::_3
-//                                                           ));
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(nh_->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -89,6 +83,12 @@ void ObstacleExtractor::updateParamsUtil(){
   nh_->declare_parameter("max_y_limit", rclcpp::PARAMETER_DOUBLE);
   nh_->declare_parameter("frame_id", rclcpp::PARAMETER_STRING);
   nh_->declare_parameter("max_range", rclcpp::PARAMETER_DOUBLE);
+  // for shadow detector
+  nh_->declare_parameter("window", rclcpp::PARAMETER_INTEGER);
+  nh_->declare_parameter("neighbors", rclcpp::PARAMETER_INTEGER);
+  nh_->declare_parameter("min_angle", rclcpp::PARAMETER_DOUBLE);
+  nh_->declare_parameter("max_angle", rclcpp::PARAMETER_DOUBLE);
+  nh_->declare_parameter("remove_shadow_start_point", rclcpp::PARAMETER_BOOL);
 
   nh_->get_parameter_or("active", p_active_, true);
   nh_->get_parameter_or("use_scan", p_use_scan_, true);
@@ -114,6 +114,16 @@ void ObstacleExtractor::updateParamsUtil(){
   nh_->get_parameter_or("max_y_limit", p_max_y_limit_,  10.0);
   nh_->get_parameter_or("frame_id", p_frame_id_, std::string{"map"});
   nh_->get_parameter_or("max_range", p_max_range_, 3.6);
+  // for shadow detector
+  nh_->get_parameter_or("window", window_, 1);
+  nh_->get_parameter_or("neighbors", neighbors_, 20);
+  nh_->get_parameter_or("min_angle", min_angle_, 10.0);
+  nh_->get_parameter_or("max_angle", max_angle_, 170.0);
+  nh_->get_parameter_or("remove_shadow_start_point", remove_shadow_start_point_, false);
+
+  shadow_detector_.configure(
+    (min_angle_ * M_PI / 180.0),
+    (max_angle_ * M_PI / 180.0));
 
   if (p_active_ != prev_active) {
     if (p_active_) {
@@ -136,6 +146,7 @@ void ObstacleExtractor::updateParamsUtil(){
       obstacles_pub_ = nh_->create_publisher<obstacle_detector::msg::Obstacles>("raw_obstacles", 10);
       // obstacles_vis_pub_ = nh_->create_publisher<visualization_msgs::msg::MarkerArray>("raw_obstacles_visualization", 10);
       obstacles_vis_pcl_pub_ = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("raw_obstacles_visualization_pcl", 10);
+      rm_shadow_pub_ = nh_->create_publisher<sensor_msgs::msg::LaserScan>("scan_shadow", 10);
     }
     else {
       // Send empty message
@@ -154,6 +165,7 @@ void ObstacleExtractor::updateParams(const std::shared_ptr<rmw_request_id_t> req
 }
 
 void ObstacleExtractor::scanCallback(const sensor_msgs::msg::LaserScan& scan_msg) {
+  removeShadow(scan_msg, msg_);
   base_frame_id_ = scan_msg.header.frame_id;
   stamp_ = scan_msg.header.stamp;
 
@@ -243,6 +255,46 @@ Point ObstacleExtractor::distortionCorrection(sensor_msgs::msg::LaserScan scan_m
   curr2scan_in_curr_frame = /*curr2prev_in_curr_frame +*/ R_curr * prev2scan_in_prev_frame;
 
   return Point(curr2scan_in_curr_frame(0), curr2scan_in_curr_frame(1));
+}
+
+bool ObstacleExtractor::removeShadow(const sensor_msgs::msg::LaserScan& scan_in, sensor_msgs::msg::LaserScan& scan_out) {
+  scan_out = scan_in;  // Copy input scan to output scan
+
+  std::set<int> indices_to_delete;
+
+  for (unsigned int i = 0; i < scan_in.ranges.size(); ++i) {
+    for (int y = -window_; y <= window_; ++y) {
+      int j = i + y;
+      if (j < 0 || j >= static_cast<int>(scan_in.ranges.size()) || i == static_cast<unsigned int>(j)) {
+        continue;  // Skip out-of-bounds or self comparisons
+      }
+
+      if (shadow_detector_.isShadow(scan_in.ranges[i], scan_in.ranges[j], y * scan_in.angle_increment)) {
+        for (int index = std::max<int>(i - neighbors_, 0); index <= std::min<int>(i + neighbors_, static_cast<int>(scan_in.ranges.size()) - 1); ++index) {
+          if (scan_in.ranges[i] < scan_in.ranges[index]) {
+            indices_to_delete.insert(index);  // Mark farther neighbors for deletion
+          }
+        }
+        if (remove_shadow_start_point_) {
+          scan_out.ranges[i] = std::numeric_limits<float>::quiet_NaN();  // Mark shadow start point as invalid
+        }
+      }
+    }
+  }
+
+  if (logging_interface_ != nullptr) {
+    RCLCPP_DEBUG(logging_interface_->get_logger(),
+                 "removeShadow removing %d points from scan with min angle: %.2f, max angle: %.2f, neighbors: %d, and window: %d",
+                 static_cast<int>(indices_to_delete.size()), min_angle_, max_angle_, neighbors_, window_);
+  }
+
+  for (int index : indices_to_delete) {
+    scan_out.ranges[index] = std::numeric_limits<float>::quiet_NaN();  // Mark invalid ranges
+  }
+
+  // Publish the modified scan with shadows removed
+  rm_shadow_pub_->publish(scan_out);
+  return true;
 }
 
 void ObstacleExtractor::processPoints() {
